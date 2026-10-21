@@ -3,28 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>量化信号监控 v2.0</title>
+<title>量化信号监控 v2.1</title>
 <style>
   body{font-family:-apple-system,"PingFang SC",sans-serif;margin:0;padding:12px;background:#0d1117;color:#e6edf3;font-size:15px}
   .nav{margin:0 0 10px;font-size:14px}
   .nav a{color:#8b949e;text-decoration:none}
   .nav a.on{color:#58a6ff;font-weight:bold}
   h1{font-size:17px;margin:2px 0 10px}
+  h2{font-size:14px;color:#8b949e;margin:14px 0 6px;font-weight:normal}
   .bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
   button{background:#1f6feb;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:15px}
   button.sec{background:#21262d;border:1px solid #30363d}
   #status{color:#8b949e;font-size:12px;margin:6px 0}
-  /* 红色警戒横幅 */
   .hero{background:rgba(248,81,73,.22);border:2px solid #f85149;border-radius:12px;padding:14px;margin-bottom:12px;font-size:15px;line-height:1.6}
   .hero b{color:#f85149;font-size:17px}
-  /* 纪律雷达 */
-  .radar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-  .rdot{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:8px 10px;font-size:12px;min-width:76px;text-align:center}
-  .rdot .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-bottom:3px}
-  .rdot .n{font-size:13px;font-weight:bold;display:block;margin:2px 0}
-  /* 持仓卡 */
   .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin-bottom:10px}
   .card.hot{border-color:#f85149}
+  .card.kf{border-left:3px solid #58a6ff}
   .hd{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:6px;flex-wrap:wrap;gap:6px}
   .badge{border-radius:6px;padding:2px 8px;font-size:12px;font-weight:bold}
   .b-crit{background:#7d1f1f}.b-warn{background:#b35900}.b-yel{background:#8a6d00}.b-ok{background:#1f5c31}.b-gold{background:#0e6f6f}
@@ -40,7 +35,6 @@
   .zlbl span:first-line{color:#c9d1d9;font-size:11px}
   .ln{font-size:13px;color:#c9d1d9;margin-top:4px;line-height:1.6}
   .ln small{color:#8b949e}
-  /* 信号 */
   #signals{margin:12px 0 4px}
   .sig{border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:14px;line-height:1.5}
   .sig.crit{background:rgba(248,81,73,.18);border:1px solid #f85149}
@@ -51,9 +45,6 @@
   .sig .act-lbl{float:right;font-size:12px;color:#8b949e}
   .stk{display:inline-block;background:#21262d;border-radius:4px;padding:0 6px;font-size:12px;margin-right:6px;color:#58a6ff}
   .ok{background:#161b22;border:1px solid #30363d;color:#3fb950;padding:10px 12px;border-radius:8px;font-size:14px}
-  details{margin:6px 0}
-  summary{cursor:pointer;color:#8b949e;font-size:13px;padding:6px}
-  /* 表 */
   table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;margin-top:4px}
   th,td{padding:6px 4px;border-bottom:1px solid #21262d;text-align:right;white-space:nowrap;font-size:13px}
   th{color:#8b949e;font-weight:normal;font-size:11px}
@@ -70,7 +61,7 @@
   <span style="color:#8b949e"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>🤖 量化信号监控 v2.0 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
+<h1>🤖 量化信号监控 v2.1 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
 <div class="bar">
   <button onclick="loadAll()">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,8 +69,10 @@
 </div>
 <div id="status">加载中…</div>
 <div id="hero"></div>
-<div class="radar" id="radar"></div>
 <div id="cards"></div>
+<h2>⭐ 重点观察 · 近期可能有交易机会</h2>
+<div id="keycards"></div>
+<h2>📋 信号</h2>
 <div id="signals"></div>
 <table id="tbl">
   <thead><tr>
@@ -88,36 +81,61 @@
   <tbody></tbody>
 </table>
 <div class="note">
-  <b>雷达点颜色</b>=当前所处区（红=清仓/纪律，黄=预警，绿=持有/盈利），按危险程度从左到右排列。<br>
   <b>五档区间</b>：清仓≤-20%｜纪律-20~-15%｜预警-15~-10%｜持有-10~+15%｜盈利&gt;+15%（按本机成本算）。<br>
-  <b>距纪律线</b>=到下一个必须动作的边界还差多少；<b>波动带</b>=MA20±2×ATR14，触轨≠买卖点；<b>趋势评估</b>=均线+RSI+52周位的规则推演，非预测保证。<br>
-  📰事件标签来自仓库 events.js（Kimi 定期更新，无上传统一隐藏）。量比/换手仅A股有效。本页只监控提醒，不构成交易建议。
+  <b>波动带</b>：长线=MA20±2×ATR14；短线=近5日高低区间（中轨MA5）。触轨≠买卖点。<b>趋势评估</b>=均线+RSI+52周位规则推演。<br>
+  ⭐重点观察=半导体/AI算力/存储/PCB产业链（与当前主线一致）；其余自选见下方分组表。📰事件标签来自 events.js。量比/换手仅A股有效。不构成交易建议。
 </div>
 <script>
+// 0-5 持仓（顺序不可变，与成本设置对应）｜6-21 重点观察｜22-50 自选｜51-60 自选ETF｜61-63 A股指数｜64-74 美股
 const LIST = [
   ["sh603893","瑞芯微"],["sz300014","亿纬"],["sh510300","300ETF"],
   ["usNVDA","NVDA"],["usDRAM","DRAM"],["usINTC","INTC"],
+  ["sh688981","中芯国际"],["sh603986","兆易创新"],["sh688008","澜起科技"],
+  ["sz300308","中际旭创"],["sz300502","新易盛"],["sz300476","胜宏科技"],
+  ["sz002463","沪电股份"],["sz002384","东山精密"],["sh603019","中科曙光"],
+  ["sz000977","浪潮信息"],["sh688766","普冉股份"],["sz300604","长川科技"],
+  ["sh605376","博迁新材"],["sz002156","通富微电"],["sh603296","华勤技术"],
+  ["sz002837","英维克"],
+  ["sz300750","宁德时代"],["sh600030","中信证券"],["sh600887","伊利股份"],
+  ["sz002352","顺丰控股"],["sz301326","捷邦科技"],["sz000962","东方钽业"],
+  ["sh688629","华丰科技"],["sz002407","多氟多"],["sz002008","大族激光"],
+  ["sh600176","中国巨石"],["sz002050","三花智控"],["sh601288","农业银行"],
+  ["sh603259","药明康德"],["sh600895","张江高科"],["sh601166","兴业银行"],
+  ["sz000858","五粮液"],["sh600036","招商银行"],["sh600900","长江电力"],
+  ["sh601899","紫金矿业"],["sz002409","雅克科技"],["sh600206","有研新材"],
+  ["sh600276","恒瑞医药"],["sh601598","中国外运"],["sh600549","厦门钨业"],
+  ["sz000988","华工科技"],["sz300661","圣邦股份"],["sh600345","长江通信"],
+  ["sh601919","中远海控"],["sz002428","云南锗业"],
+  ["sh516150","稀土ETF"],["sh512890","红利低波ETF"],["sh518880","黄金ETF"],
+  ["sh562800","稀有金属ETF"],["sz159992","创新药ETF"],["sh588000","科创50ETF"],
+  ["sh513300","纳指ETF"],["sh510210","上证指数ETF"],["sh510500","中证500ETF"],
+  ["sh562950","消费电子ETF"],
+  ["sh000001","上证"],["sz399006","创业板"],["sh512480","半导体"],
   ["usMETA","Meta"],["usGOOGL","谷歌"],["usTSLA","特斯拉"],
   ["usKLAC","科磊"],["usSOXS","SOXS"],["usMU","美光"],
-  ["sh000001","上证"],["sz399006","创业板"],["sh512480","半导体"],
   ["usIXIC","纳指"],["usINX","标普"],["usDJI","道指"],
   ["usTXN","德州仪器"],["usLRCX","泛林"]
 ];
+const HOLD = 6, KEY = 22; // [0,6) 持仓 [6,22) 重点观察
 const GROUPS = [
   {name:"A股 · 持仓", idx:[0,1,2]},
-  {name:"A股 · 指数/板块", idx:[12,13,14]},
+  {name:"A股 · 重点观察", idx:[6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21]},
+  {name:"A股 · 自选", idx:[22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50]},
+  {name:"A股 · 自选ETF", idx:[51,52,53,54,55,56,57,58,59,60]},
+  {name:"A股 · 指数", idx:[61,62,63]},
   {name:"美股 · 持仓", idx:[3,4,5]},
-  {name:"美股 · 观察", idx:[6,7,8,9,10,11,18,19]},
-  {name:"美股 · 指数", idx:[15,16,17]}
+  {name:"美股 · 观察", idx:[64,65,66,67,68,69,73,74]},
+  {name:"美股 · 指数", idx:[70,71,72]}
 ];
-const HOLD = 6;
+// 需要日K的标的：持仓+重点观察+指数/美股
+const KSET = [];
+for(let i = 0; i < 22; i++) KSET.push(i);
+for(let i = 61; i < 75; i++) KSET.push(i);
 let auto = true, timer = null, kdReady = false;
 let COSTS = null, TARGETS = null;
 try { COSTS = JSON.parse(localStorage.getItem("costs") || "null"); } catch(e) { COSTS = null; }
 try { TARGETS = JSON.parse(localStorage.getItem("targets") || "null"); } catch(e) { TARGETS = null; }
-
 function fmt(n, d){ if(!isFinite(n)) return "—"; return (+n).toFixed(d === undefined ? 2 : d); }
-
 function zoneOf(d){ const c = Math.max(-30, Math.min(25, d)); return (c + 30) / 55 * 100; }
 function zoneName(d){
   if(d <= -20) return ["清仓区","b-crit"];
@@ -129,9 +147,9 @@ function zoneName(d){
 function nextLine(d, price, cost){
   if(d <= -20) return null;
   if(d <= -15) return "距清仓线(-20%) " + fmt((d+20)/100*price) + "元";
-  if(d <= -10) return "距纪律线(-15%) 还差 " + fmt((cost*0.85-price)) + "元(" + fmt(d+15,1) + "%)";
-  if(d <= 15)  return "距预警线(-10%) 还差 " + fmt((cost*0.9-price)) + "元";
-  return "距目标自行管理·可兑现";
+  if(d <= -10) return "距纪律线(-15%) 还差 " + fmt(cost*0.85-price) + "元(" + fmt(d+15,1) + "%)";
+  if(d <= 15)  return "距预警线(-10%) 还差 " + fmt(cost*0.9-price) + "元";
+  return "盈利区·可分批兑现或上移止损";
 }
 function adviceOf(d){
   if(d <= -20) return "🔴 强制纪律：执行减仓/清仓，禁止补仓摊平";
@@ -144,7 +162,7 @@ function trendView(r){
   if(!r.K || !r.K.trend || !r.K.ma20) return "";
   let s = 0; const parts = [];
   if(r.price > r.K.ma20){ s++; parts.push("价在MA20上方"); } else { s--; parts.push("价在MA20下方"); }
-  if(r.K.trend.ma5 > r.K.ma20){ s++; parts.push("MA5>MA20"); } else { s--; parts.push("MA5<MA20"); }
+  if(r.K.trend.ma5 > r.K.ma20){ s++; parts.push("MA5高于MA20"); } else { s--; parts.push("MA5低于MA20"); }
   let label = s >= 2 ? "偏多" : s <= -2 ? "偏空" : "震荡";
   if(r.K.trend.rsi >= 70) label += "·超买";
   if(r.K.trend.rsi <= 30) label += "·超卖";
@@ -152,27 +170,22 @@ function trendView(r){
   if(r.K.pos52 !== null && r.K.pos52 <= 5) parts.push("近一年新低区");
   return "📊 趋势评估：<b>" + label + "</b>（" + parts.join("，") + "）";
 }
-
+function bandLines(r){
+  if(!r.K) return "";
+  let out = "";
+  if(r.K.atr && r.K.ma20){
+    out += "📐 长线波动带（MA20±2×ATR14）：" + fmt(r.K.ma20-2*r.K.atr) + " ~ " + fmt(r.K.ma20+2*r.K.atr);
+  }
+  if(r.K.ll5 !== null && r.K.ll5 !== undefined){
+    out += (out ? "｜" : "") + "短线波动带（5日）：" + fmt(r.K.ll5) + " ~ " + fmt(r.K.hh5);
+  }
+  if(out) out += "<br><span style='color:#8b949e;font-size:12px'>20日支撑 " + fmt(r.K.ll20) + "｜20日压力 " + fmt(r.K.hh20) + "（触轨≠买卖点）</span>";
+  return out;
+}
 let SIGS = [];
 function addSig(sev, stk, text){
   SIGS.push({sev: sev, stk: stk, text: text, rank: sev === "crit" ? 0 : sev === "warn" ? 1 : 2});
 }
-
-function renderRadar(rows){
-  const box = document.getElementById("radar");
-  box.innerHTML = "";
-  const hs = rows.filter(function(r){ return r.ci < HOLD && r.dcost !== null; });
-  hs.sort(function(a,b){ return a.dcost - b.dcost; });
-  hs.forEach(function(r){
-    const zn = zoneName(r.dcost);
-    const colors = {"b-crit":"#f85149","b-warn":"#f0883e","b-yel":"#d29922","b-ok":"#3fb950","b-gold":"#39c5cf"};
-    const div = document.createElement("div");
-    div.className = "rdot";
-    div.innerHTML = '<span class="dot" style="background:' + colors[zn[1]] + '"></span><span class="n">' + r.name + '</span><span class="' + (r.dcost>0?"up":"dn") + '">' + (r.dcost>0?"+":"") + fmt(r.dcost,1) + '%</span>';
-    box.appendChild(div);
-  });
-}
-
 function renderHero(rows){
   const box = document.getElementById("hero");
   box.innerHTML = "";
@@ -182,10 +195,9 @@ function renderHero(rows){
   div.className = "hero";
   div.innerHTML = "<b>⚠️ 纪律触发</b>｜" + crit.map(function(r){
     return r.name + " 浮亏 " + fmt(r.dcost,1) + "%（现价 " + fmt(r.price) + "）";
-  }).join("；") + "<br>今日内必须：① 复核买入逻辑 ② 按预案执行动作 ③ 把结果记入交易日志";
+  }).join("；") + "<br>今日内必须：① 复核买入逻辑 ② 按预案执行动作 ③ 结果记入交易日志";
   box.appendChild(div);
 }
-
 function renderCards(rows){
   const box = document.getElementById("cards");
   box.innerHTML = "";
@@ -208,21 +220,40 @@ function renderCards(rows){
       '</div>' +
       '<div class="zlbl"><span style="width:22%">' + fmt(c*0.8) + '<br>清仓线</span><span style="width:14%">' + fmt(c*0.85) + '<br>-15%</span><span style="width:14%">' + fmt(c*0.9) + '<br>-10%</span><span style="width:32%">' + fmt(c) + '<br>成本</span><span style="width:18%">' + fmt(c*1.15) + '<br>盈利线</span></div>' +
       '<div class="ln">' + adviceOf(d) + '</div>' +
-      (r.K && r.K.atr ? '<div class="ln">📐 波动带 ' + fmt(r.K.ma20-2*r.K.atr) + '~' + fmt(r.K.ma20+2*r.K.atr) + '｜20日支撑 <b style="color:#3fb950">' + fmt(r.K.ll20) + '</b>｜20日压力 <b style="color:#f85149">' + fmt(r.K.hh20) + '</b>' + (tgt ? '｜目标 ' + fmt(tgt) : '') + '</div>' : "") +
+      (bandLines(r) ? '<div class="ln">' + bandLines(r) + '</div>' : "") +
       (trendView(r) ? '<div class="ln">' + trendView(r) + '</div>' : "") +
       (window.EVENTS && window.EVENTS[r.code] ? '<div class="ln" style="color:#d29922">📰 ' + window.EVENTS[r.code] + '</div>' : "");
     box.appendChild(card);
   });
 }
-
+function renderKeyCards(rows){
+  const box = document.getElementById("keycards");
+  box.innerHTML = "";
+  rows.forEach(function(r){
+    if(r.ci < HOLD || r.ci >= KEY) return;
+    const cls = r.pct > 0 ? "up" : r.pct < 0 ? "dn" : "";
+    const card = document.createElement("div");
+    card.className = "card kf";
+    card.innerHTML =
+      '<div class="hd"><span><b>' + r.name + '</b>' +
+      (r.K && r.K.trend ? ' <span class="badge ' + (r.K.trend.ma5>r.K.trend.ma20?'b-ok':'b-yel') + '">' + (r.K.trend.ma5>r.K.trend.ma20?'多':'空') + '</span>' : '') + '</span>' +
+      '<span class="nums"><b>' + fmt(r.price) + '</b> <span class="' + cls + '">' + (r.pct>0?"+":"") + fmt(r.pct) + '%</span></span></div>' +
+      (bandLines(r) ? '<div class="ln">' + bandLines(r) + '</div>' : "") +
+      (trendView(r) ? '<div class="ln">' + trendView(r) + '</div>' : "") +
+      (window.EVENTS && window.EVENTS[r.code] ? '<div class="ln" style="color:#d29922">📰 ' + window.EVENTS[r.code] + '</div>' : "");
+    box.appendChild(card);
+  });
+}
 function renderSignals(){
   SIGS.sort(function(a,b){ return a.rank - b.rank; });
   const box = document.getElementById("signals");
   box.innerHTML = "";
   const groups = [[0,"🔴 立即操作"],[1,"🟡 今日复核"],[2,"⚪ 观察参考"]];
+  let any = false;
   groups.forEach(function(g){
     const list = SIGS.filter(function(s){ return s.rank === g[0]; });
     if(list.length === 0) return;
+    any = true;
     const h = document.createElement("div");
     h.style.cssText = "font-size:13px;color:#8b949e;margin:10px 0 6px";
     h.textContent = g[1] + "（" + list.length + "）";
@@ -233,18 +264,16 @@ function renderSignals(){
       const tag = s.rank === 0 ? "【纪律】" : s.rank === 1 ? "【预警】" : "【关注】";
       div.innerHTML = (s.rank < 2 ? '<span class="act-lbl">⚡ ' + (s.rank === 0 ? "立即" : "今日") + '</span>' : "") +
         '<span class="tag">' + tag + '</span><span class="stk">' + s.stk + '</span>' + s.text;
-      if(s.rank === 2) div.style.display = "block";
       box.appendChild(div);
     });
   });
-  if(SIGS.length === 0){
+  if(!any){
     const div = document.createElement("div");
     div.className = "ok";
-    div.textContent = "✅ 三层信号全部安静：纪律、趋势、情绪均无触发。";
+    div.textContent = "✅ 三层信号全部安静。";
     box.appendChild(div);
   }
 }
-
 function calcK(closes){
   const n = closes.length;
   if(n < 21) return null;
@@ -270,6 +299,8 @@ function loadKline(code){
       const k = calcK(closes);
       const h20 = Math.max.apply(null, highs.slice(-20));
       const l20 = Math.min.apply(null, lows.slice(-20));
+      const h5 = Math.max.apply(null, highs.slice(-5));
+      const l5 = Math.min.apply(null, lows.slice(-5));
       let atr = null;
       if(closes.length >= 15){
         let s = 0;
@@ -286,7 +317,7 @@ function loadKline(code){
         if(h52 > l52) pos52 = (closes[closes.length-1] - l52) / (h52 - l52) * 100;
       }
       window["k_" + code] = { trend: k, pos20: h20 > l20 ? (closes[closes.length-1] - l20) / (h20 - l20) * 100 : null, pos52: pos52,
-                              atr: atr, ma20: k ? k.ma20 : null, hh20: h20, ll20: l20 };
+                              atr: atr, ma20: k ? k.ma20 : null, hh20: h20, ll20: l20, hh5: h5, ll5: l5 };
     })
     .catch(function(){ window["k_" + code] = null; });
 }
@@ -296,7 +327,6 @@ function loadEvents(){
     try { new Function(txt)(); } catch(e) {}
   }).catch(function(){});
 }
-
 function render(){
   SIGS = [];
   const tb = document.querySelector("#tbl tbody");
@@ -311,15 +341,15 @@ function render(){
     const price = +f[3], pct = +f[32], high = +f[33], low = +f[34];
     const turnover = f[38] === "" ? null : +f[38];
     const volratio = (+f[49] > 0 && +f[49] < 50) ? +f[49] : null;
-    const dcost = COSTS ? (price - COSTS[i]) / COSTS[i] * 100 : null;
+    const dcost = (i < HOLD && COSTS) ? (price - COSTS[i]) / COSTS[i] * 100 : null;
     const isA = s[0].indexOf("us") !== 0;
     const K = window["k_" + s[0]];
     rows.push({ci:i, name:s[1], code:s[0], price:price, pct:pct, high:high, low:low, turnover:turnover,
-               volratio:volratio, dcost:dcost, isHold:i<HOLD, isA:isA, K:K, cost:COSTS?COSTS[i]:null});
+               volratio:volratio, dcost:dcost, isHold:i<HOLD, isA:isA, K:K, cost:(i<HOLD&&COSTS)?COSTS[i]:null});
   });
   renderHero(rows);
-  renderRadar(rows);
   renderCards(rows);
+  renderKeyCards(rows);
   GROUPS.forEach(function(g){
     const trg = document.createElement("tr");
     trg.innerHTML = '<td colspan="10" class="grp">▸ ' + g.name + "</td>";
@@ -345,7 +375,7 @@ function render(){
       const tr = document.createElement("tr");
       if(r.dcost !== null && r.dcost <= -15) tr.className = "alert";
       tr.innerHTML =
-        '<td class="l">' + r.name + (r.isHold ? "" : ' <span style="color:#8b949e;font-size:11px">观</span>') + '</td>' +
+        '<td class="l">' + r.name + (r.isHold ? "" : (r.ci < KEY ? ' <span style="color:#58a6ff;font-size:11px">⭐</span>' : ' <span style="color:#8b949e;font-size:11px">观</span>')) + '</td>' +
         '<td>' + fmt(r.price) + '</td>' +
         '<td class="' + cls + '">' + (r.pct > 0 ? "+" : "") + fmt(r.pct) + '</td>' +
         '<td>' + (amp === null ? "—" : fmt(amp, 1)) + '</td>' +
@@ -360,15 +390,15 @@ function render(){
         if(r.dcost <= -15) addSig("crit", r.name, "浮亏 " + fmt(r.dcost,1) + "% 触发纪律线：今日内复盘并执行（预案：减半+复核逻辑）");
         else if(r.dcost <= -10) addSig("warn", r.name, "浮亏 " + fmt(r.dcost,1) + "%：距纪律线仅 " + fmt(r.dcost+15,1) + " 点，复核买入逻辑，不操作");
       }
-      if(r.K && r.K.trend){
-        if(r.K.trend.crossUp) addSig("info", r.name, "MA5金叉MA20：趋势转多（观察确认，不追）");
-        if(r.K.trend.crossDn) addSig("info", r.name, "MA5死叉MA20：趋势转空（持仓警惕）");
+      if(r.ci < KEY && r.K && r.K.trend){
+        if(r.K.trend.crossUp) addSig("info", r.name, "MA5金叉MA20：趋势转多信号，关注机会确认（不追）");
+        if(r.K.trend.crossDn) addSig("info", r.name, "MA5死叉MA20：趋势转空，观望");
         if(r.K.trend.rsi >= 70) addSig("warn", r.name, "RSI14=" + fmt(r.K.trend.rsi,0) + " 超买：追高风险大");
-        if(r.K.trend.rsi <= 30) addSig("info", r.name, "RSI14=" + fmt(r.K.trend.rsi,0) + " 超卖：观察窗口，不等于买点");
-        if(r.isHold && r.price < r.K.ma20 && r.K.trend.rsi < 40) addSig("warn", r.name, "跌破MA20且RSI<40：趋势走弱，复核买入逻辑");
+        if(r.K.trend.rsi <= 30) addSig("info", r.name, "RSI14=" + fmt(r.K.trend.rsi,0) + " 超卖：观察反弹窗口");
+        if(r.isHold && r.price < r.K.ma20 && r.K.trend.rsi < 40) addSig("warn", r.name, "跌破MA20且RSI<40：持仓趋势走弱，复核买入逻辑");
       }
-      if(r.isA && r.volratio !== null && r.volratio > 2 && r.pct > 5) addSig("info", r.name, "量比" + fmt(r.volratio,2) + " 且涨" + fmt(r.pct) + "%：情绪过热，短线不追");
-      if(Math.abs(r.pct) >= 7) addSig("info", r.name, (r.pct > 0 ? "大涨" : "大跌") + fmt(r.pct) + "%：异动，查消息");
+      if(r.isA && r.ci < KEY && r.volratio !== null && r.volratio > 2 && r.pct > 5) addSig("info", r.name, "量比" + fmt(r.volratio,2) + " 且涨" + fmt(r.pct) + "%：情绪过热，短线不追");
+      if(r.ci < KEY && Math.abs(r.pct) >= 7) addSig("info", r.name, (r.pct > 0 ? "大涨" : "大跌") + fmt(r.pct) + "%：异动，查消息");
     });
   });
   renderSignals();
@@ -377,7 +407,6 @@ function render(){
   document.getElementById("status").textContent = "已更新 " + now.toLocaleTimeString("zh-CN") +
     "（行情 " + ok + " 成功" + (kdReady ? "，日K已加载" : "，日K加载中…") + "）";
 }
-
 function loadQuotes(){
   const old = document.getElementById("qs");
   if(old) old.remove();
@@ -393,7 +422,7 @@ function loadQuotes(){
 function loadAll(){ loadKlines(); loadEvents(); loadQuotes(); }
 function loadKlines(){
   kdReady = false;
-  Promise.all(LIST.map(function(s){ return loadKline(s[0]); })).then(function(){
+  Promise.all(KSET.map(function(i){ return loadKline(LIST[i][0]); })).then(function(){
     kdReady = true;
     render();
   });
