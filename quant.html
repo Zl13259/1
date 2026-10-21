@@ -3,66 +3,65 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>量化信号监控 v5.7</title>
+<title>信号监控 v6.1</title>
 <style>
-  body{font-family:-apple-system,"PingFang SC",sans-serif;margin:0;padding:12px;background:#0d1117;color:#e6edf3;font-size:15px}
-  .nav{margin:0 0 10px;font-size:14px}
-  .nav a{color:#8b949e;text-decoration:none}
-  .nav a.on{color:#58a6ff;font-weight:bold}
-  h1{font-size:17px;margin:2px 0 10px}
-  h2{font-size:14px;color:#8b949e;margin:14px 0 6px;font-weight:normal}
-  .bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-  button{background:#1f6feb;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:15px}
-  button.sec{background:#21262d;border:1px solid #30363d}
-  #status{color:#8b949e;font-size:12px;margin:6px 0}
-  .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin-bottom:10px}
-  .card.kf{border-left:3px solid #58a6ff}
-  .hd{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:6px;flex-wrap:wrap;gap:6px}
-  .badge{border-radius:6px;padding:2px 8px;font-size:12px;font-weight:bold}
-  .b-s2{background:#0e6f6f}.b-s1{background:#1f5c31}.b-0{background:#3a3f45}.b-w1{background:#8a6d00}.b-w2{background:#b35900}
-  .hold-tag{display:inline-block;background:#f0883e;border-radius:4px;padding:0 5px;font-size:10px;margin-left:4px;color:#000}
-  .nums{font-size:13px;color:#c9d1d9}
-  .nums b{font-size:16px}
-  .ln{font-size:13px;color:#c9d1d9;margin-top:4px;line-height:1.65}
-  .ln small{color:#8b949e}
-  .zone2{display:flex;gap:4px;margin:8px 0 2px}
-  .zone2 div{flex:1;border-radius:6px;padding:6px 4px;text-align:center;font-size:11px;line-height:1.5}
-  .zb{background:rgba(63,185,80,.12);border:1px solid #238636}
-  .zp{background:rgba(248,81,73,.10);border:1px solid #da3633}
-  .zone2 b{display:block;font-size:13px}
+  /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
+  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
+  .nav{margin:0 0 12px;font-size:15px}
+  .nav a{color:#98989d;text-decoration:none}
+  .nav a.on{color:#0a84ff;font-weight:600}
+  h1{font-size:26px;font-weight:700;margin:2px 0 14px;letter-spacing:-.4px}
+  h2{font-size:13px;color:#98989d;margin:22px 0 8px;font-weight:600;letter-spacing:.3px}
+  .bar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  button{background:#0a84ff;color:#fff;border:none;border-radius:999px;padding:8px 18px;font-size:15px;font-weight:500}
+  button.sec{background:#1c1c1e;color:#0a84ff}
+  #status{color:#98989d;font-size:12px;margin:4px 0}
+  #breadth{font-size:12px;color:#98989d;margin:2px 0 10px}
+  .card{background:#1c1c1e;border-radius:14px;padding:14px;margin-bottom:10px}
+  .hd{display:flex;justify-content:space-between;align-items:baseline;font-size:16px;margin-bottom:4px;flex-wrap:wrap;gap:4px}
+  .nums{font-size:13px;color:#98989d}
+  .nums b{font-size:17px;color:#fff;font-weight:600}
+  .ln{font-size:13px;color:#d1d1d6;margin-top:4px;line-height:1.65}
+  .ln small{color:#98989d}
+  .zone2{display:flex;gap:8px;margin:10px 0 2px}
+  .zone2 div{flex:1;border-radius:10px;padding:8px 6px;text-align:center;font-size:11px;line-height:1.5;background:#2c2c2e;color:#98989d}
+  .zb{background:rgba(48,209,88,.14);color:#30d158}
+  .zp{background:rgba(255,69,58,.13);color:#ff8078}
+  .zone2 b{display:block;font-size:14px;font-weight:600;color:#fff}
   #signals{margin:12px 0 4px}
-  .sig{border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:14px;line-height:1.5}
-  .sig.crit{background:rgba(248,81,73,.18);border:1px solid #f85149}
-  .sig.warn{background:rgba(210,153,34,.15);border:1px solid #d29922}
-  .sig.info{background:#161b22;border:1px solid #30363d;color:#c9d1d9}
-  .stk{display:inline-block;background:#21262d;border-radius:4px;padding:0 6px;font-size:12px;margin-right:6px;color:#58a6ff}
-  .ok{background:#161b22;border:1px solid #30363d;color:#3fb950;padding:10px 12px;border-radius:8px;font-size:14px}
+  .sig{border-radius:12px;padding:12px 14px;margin-bottom:8px;font-size:14px;line-height:1.5}
+  .sig.crit{background:rgba(255,69,58,.14)}
+  .sig.warn{background:rgba(255,159,10,.12)}
+  .sig.info{background:#1c1c1e;color:#d1d1d6}
+  .stk{display:inline-block;background:#2c2c2e;border-radius:6px;padding:1px 7px;font-size:12px;margin-right:6px;color:#0a84ff}
+  .ok{background:#1c1c1e;color:#30d158;padding:10px 14px;border-radius:12px;font-size:14px}
   table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;margin-top:4px}
-  th,td{padding:6px 4px;border-bottom:1px solid #21262d;text-align:right;white-space:nowrap;font-size:13px}
-  th{color:#8b949e;font-weight:normal;font-size:11px}
+  th,td{padding:10px 4px;text-align:right;white-space:nowrap;font-size:14px;border-bottom:.5px solid rgba(255,255,255,.08)}
+  th{color:#98989d;font-weight:400;font-size:12px}
   td.l,th.l{text-align:left}
-  .up{color:#f85149}.dn{color:#3fb950}
-  .grp{background:#161b22;color:#58a6ff;font-size:12px;text-align:left;padding:7px 6px;border-radius:6px}
-  .note{color:#8b949e;font-size:12px;margin-top:10px;line-height:1.7}
+  .up{color:#ff453a}.dn{color:#30d158}
+  .grp{background:transparent;color:#98989d;font-size:12px;text-align:left;padding:14px 6px 4px;border-bottom:none}
+  .note{color:#98989d;font-size:12px;margin-top:16px;line-height:1.7}
+  a{color:#0a84ff}
 </style>
 </head>
 <body>
 <div class="nav">
   <a href="./index.html">📈 行情简报</a>
-  <span style="color:#8b949e"> ｜ </span>
+  <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>🤖 量化信号监控 v5.7 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v6.1</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
 </div>
 <div id="status">加载中…</div>
-<div id="breadth" style="font-size:12px;color:#8b949e;margin:2px 0 8px"></div>
+<div id="breadth" style="font-size:12px;color:#98989d;margin:2px 0 8px"></div>
 <h2>📅 重要事件（金十/财联社/东财权威源·级联兜底·仅展示不入评分）</h2>
-<div id="evsrc" style="font-size:13px;color:#8b949e;margin:2px 0 4px">加载中…</div>
+<div id="evsrc" style="font-size:13px;color:#98989d;margin:2px 0 4px">加载中…</div>
 <h2>📋 预警与信号（操作优先级最高）</h2>
-<div id="sigmeta" style="font-size:12px;color:#8b949e;margin:2px 0 8px"></div>
+<div id="sigmeta" style="font-size:12px;color:#98989d;margin:2px 0 8px"></div>
 <div id="signals"></div>
 <h2>🎯 机会与持仓 · ≥80重点关注｜70-79 ◎观察级｜另附前5名外候选（只观察不动作）｜🚫=一票否决</h2>
 <div id="cards"></div>
@@ -366,9 +365,9 @@ function renderCards(rows){
     const cls = r.pct > 0 ? "up" : r.pct < 0 ? "dn" : "";
     const minvN = K2 && K2.minv ? K2.minv.filter(function(t){ return t; }).length : null;
     const card = document.createElement("div");
-    card.className = "card" + (!isHold(r.code) ? " kf" : "");
+    card.className = "card";
     if(!K2){
-      card.innerHTML = '<div class="hd"><span><b>' + r.name + '</b>' + (isHold(r.code) ? '<span class="hold-tag">持</span>' : '') + '</span><span class="nums"><b>' + fmt(r.price) + '</b> <span class="' + cls + '">' + (r.pct>0?"+":"") + fmt(r.pct) + '%</span></span></div><div class="ln"><small>技术分析数据加载中或不可用</small></div>';
+      card.innerHTML = '<div class="hd"><span><b>' + r.name + '</b>' + (isHold(r.code) ? ' <span style="font-size:11px;color:#ff9f0a">持仓</span>' : '') + '</span><span class="nums"><b>' + fmt(r.price) + '</b> <span class="' + cls + '">' + (r.pct>0?"+":"") + fmt(r.pct) + '%</span></span></div><div class="ln"><small>技术分析数据加载中或不可用</small></div>';
       box.appendChild(card);
       return;
     }
@@ -376,31 +375,31 @@ function renderCards(rows){
     const buyHi = K2.sup1 ? K2.sup1 + 0.5 * K2.atr : null;
     const stop = K2.sup1 ? K2.sup1 - K2.atr : null;
     card.innerHTML =
-      '<div class="hd"><span><b>' + r.name + '</b>' + (isHold(r.code) ? '<span class="hold-tag">持</span>' : '') +
-      ' <span class="badge ' + (r.grade ? r.grade[1] : K2.bc) + '">' + (r.grade ? r.grade[0] : K2.label) + '</span>' +
-      (r.stage ? ' <span class="badge ' + r.stage.cls + '">' + r.stage.name + '</span>' : '') +
-      (minvN !== null ? ' <span class="badge ' + (minvN >= 5 ? 'b-s2' : minvN >= 4 ? 'b-s1' : 'b-0') + '">M' + minvN + '/6</span>' : '') +
-      (r.obsTier ? ' <span class="badge b-0">◎70+观察</span>' : '') +
-      (r.nearMiss ? ' <span class="badge b-0">候选·未达80</span>' : '') +
-      ' <span style="font-size:12px;color:#8b949e">纯技术 <b style="color:#e6edf3">' + r.total + '</b>/100</span></span>' +
+      '<div class="hd"><span><b>' + r.name + '</b>' + (isHold(r.code) ? ' <span style="font-size:11px;color:#ff9f0a">持仓</span>' : '') +
+      ' <span style="font-size:12px;color:' + (r.total >= 90 ? '#30d158' : r.total >= 80 ? '#0a84ff' : '#98989d') + '">' + (r.grade ? r.grade[0] : K2.label) + '</span>' +
+      (r.stage ? ' <span style="font-size:12px;color:#98989d">· ' + r.stage.name + '</span>' : '') +
+      (minvN !== null ? ' <span style="font-size:12px;color:#98989d">趋势' + minvN + '/6</span>' : '') +
+      (r.obsTier ? ' <span style="font-size:12px;color:#98989d">观察级</span>' : '') +
+      (r.nearMiss ? ' <span style="font-size:12px;color:#98989d">未达线·仅观察</span>' : '') +
+      ' <span style="font-size:12px;color:#98989d">纯技术 <b style="color:#ffffff">' + r.total + '</b>/100</span></span>' +
       '<span class="nums"><b>' + fmt(r.price) + '</b> <span class="' + cls + '">' + (r.pct>0?"+":"") + fmt(r.pct) + '%</span></span></div>' +
-      (r.veto ? '<div class="ln" style="color:#f85149">🚫 一票否决' + (r.veto.until ? '（至' + r.veto.until + '）' : '') + '：' + r.veto.reason + '</div>' : "") +
+      (r.veto ? '<div class="ln" style="color:#ff453a">🚫 一票否决' + (r.veto.until ? '（至' + r.veto.until + '）' : '') + '：' + r.veto.reason + '</div>' : "") +
       '<div class="zone2">' +
         (buyLo ? '<div class="zb">建议买入区<b>' + fmt(buyLo) + '~' + fmt(buyHi) + '</b><small>回踩强支撑</small></div>' : '<div class="zb">建议买入区<b>—</b></div>') +
         (K2.res1 ? '<div class="zp">建议卖出区<b>' + fmt(Math.min(K2.res1, K2.res2 || K2.res1)) + '~' + fmt(Math.max(K2.res1, K2.res2 || K2.res1)) + '</b><small>压力带</small></div>' : '<div class="zp">建议卖出区<b>—</b></div>') +
-        (stop ? '<div class="zp" style="background:rgba(248,81,73,.06)">止损参考<b>' + fmt(stop) + '</b><small>强支撑-1×ATR</small></div>' : '') +
+        (stop ? '<div class="zp" style="background:rgba(255,69,58,.06)">止损参考<b>' + fmt(stop) + '</b><small>强支撑-1×ATR</small></div>' : '') +
       '</div>' +
-      '<div class="ln">支撑 <b style="color:#3fb950">' + fmt(K2.sup1) + '</b>' + (K2.sup2 ? ' / ' + fmt(K2.sup2) : '') +
-        '｜压力 <b style="color:#f85149">' + (K2.res1 ? fmt(K2.res1) : '—') + '</b>' + (K2.res2 ? ' / ' + fmt(K2.res2) : '') +
+      '<div class="ln">支撑 <b style="color:#30d158">' + fmt(K2.sup1) + '</b>' + (K2.sup2 ? ' / ' + fmt(K2.sup2) : '') +
+        '｜压力 <b style="color:#ff453a">' + (K2.res1 ? fmt(K2.res1) : '—') + '</b>' + (K2.res2 ? ' / ' + fmt(K2.res2) : '') +
         '｜布林 ' + fmt(K2.bollL) + '~' + fmt(K2.bollU) + '</div>' +
       '<div class="ln">' + macdText(K2) + '｜RSI14=' + fmt(K2.rsi,0) + '｜KDJ: K=' + fmt(K2.K,0) + ' D=' + fmt(K2.D,0) + ' J=' + fmt(K2.J,0) + '</div>' +
-      (r.rev >= 2 && !r.veto ? '<div class="ln" style="color:#39c5cf">🔵 超跌反转：阶段' + (r.rev === 3 ? (K2.ma60 && r.price < K2.ma60 ? '③触发（MA60下方=下跌趋势中反弹：仓位减半试探，止损=前低-1×ATR）' : '③触发（右侧确认，可小仓试探，止损=前低-1×ATR）') : '②企稳迹象（缩量收阳/长下影，等待触发）') + '</div>' : '') +
+      (r.rev >= 2 && !r.veto ? '<div class="ln" style="color:#64d2ee">🔵 超跌反转：阶段' + (r.rev === 3 ? (K2.ma60 && r.price < K2.ma60 ? '③触发（MA60下方=下跌趋势中反弹：仓位减半试探，止损=前低-1×ATR）' : '③触发（右侧确认，可小仓试探，止损=前低-1×ATR）') : '②企稳迹象（缩量收阳/长下影，等待触发）') + '</div>' : '') +
       '<div class="ln">20日 ' + (K2.ret20 !== null ? ((K2.ret20 > 0 ? "+" : "") + fmt(K2.ret20,1) + "%") : "—") +
         '｜RS ' + (r.rs !== null && r.rs !== undefined ? r.rs : "—") +
         (BENCH_RET20 !== null && K2.ret20 !== null ? '｜相对上证 ' + ((K2.ret20 - BENCH_RET20) > 0 ? "+" : "") + fmt(K2.ret20 - BENCH_RET20,1) + "%" : "") + '</div>' +
-      (MACRO_ON ? '<div class="ln" style="color:#d29922">⚠️ 宏观事件窗口生效中：新开仓建议仓位减半</div>' : "") +
+      (MACRO_ON ? '<div class="ln" style="color:#ff9f0a">⚠️ 宏观事件窗口生效中：新开仓建议仓位减半</div>' : "") +
       (trendText(K2)) +
-      (r.total !== null && r.total >= 80 && !isHold(r.code) && !r.veto ? '<div class="ln" style="color:#d29922">💸 往返成本≈0.15%+滑点：短线预期利润空间须覆盖成本</div>' : '') +
+      (r.total !== null && r.total >= 80 && !isHold(r.code) && !r.veto ? '<div class="ln" style="color:#ff9f0a">💸 往返成本≈0.15%+滑点：短线预期利润空间须覆盖成本</div>' : '') +
       (r.nearMiss ? '<div class="ln"><small>未达80分门槛，仅为当前最高分观察对象，不产生任何买入动作</small></div>' : "");
     box.appendChild(card);
   });
@@ -449,7 +448,7 @@ function renderSignals(){
   SIGS.forEach(function(s, i){
     const div = document.createElement("div");
     div.className = "sig " + s.sev;
-    div.innerHTML = '<span style="color:#8b949e;font-size:12px">' + (i + 1) + '.</span> <span class="stk">' + s.stk + '</span>' + s.text;
+    div.innerHTML = '<span style="color:#98989d;font-size:12px">' + (i + 1) + '.</span> <span class="stk">' + s.stk + '</span>' + s.text;
     box.appendChild(div);
   });
 }
@@ -585,7 +584,7 @@ function render(){
     if(r.K && r.K.ll20 && r.price <= r.K.ll20) nlN++;
   });
   const breadthEl = document.getElementById("breadth");
-  if(breadthEl) breadthEl.innerHTML = "🌡️ 池内情绪：上涨 <b style=\"color:#f85149\">" + advN + "</b> / 下跌 <b style=\"color:#3fb950\">" + decN +
+  if(breadthEl) breadthEl.innerHTML = "🌡️ 池内情绪：上涨 <b style=\"color:#ff453a\">" + advN + "</b> / 下跌 <b style=\"color:#30d158\">" + decN +
     "</b>｜20日新高 " + nhN + " · 新低 " + nlN + "｜宽度 " + (rows.length ? Math.round(advN / rows.length * 100) : 0) + "%";
   MACRO_ON = EV_FEED.macro;
   renderCards(rows);
@@ -600,7 +599,7 @@ function render(){
       const K2 = r.K;
       const tr = document.createElement("tr");
       tr.innerHTML =
-        '<td class="l">' + r.name + (isHold(r.code) ? ' <span style="color:#f0883e;font-size:10px">持</span>' : r.thermo ? ' <span style="color:#8b949e;font-size:10px">温</span>' : (r.total !== null && r.total >= 80) ? ' <span style="color:#58a6ff;font-size:11px">⭐</span>' : '') + '</td>' +
+        '<td class="l">' + r.name + (isHold(r.code) ? ' <span style="color:#ff9f0a;font-size:10px">持</span>' : r.thermo ? ' <span style="color:#98989d;font-size:10px">温</span>' : (r.total !== null && r.total >= 80) ? ' <span style="color:#0a84ff;font-size:11px">⭐</span>' : '') + '</td>' +
         '<td>' + fmt(r.price) + '</td>' +
         '<td class="' + cls + '">' + (r.pct > 0 ? "+" : "") + fmt(r.pct) + '</td>' +
         '<td class="' + (K2 && K2.ret20 !== null && K2.ret20 > 0 ? "up" : "dn") + '">' + (K2 && K2.ret20 !== null ? ((K2.ret20 > 0 ? "+" : "") + fmt(K2.ret20,1)) : "—") + '</td>' +
@@ -608,7 +607,7 @@ function render(){
         '<td>' + (r.tech !== null ? r.tech : "—") + '</td>' +
         '<td>' + ((r.rev >= 2 ? "+" + (r.rev === 3 ? 20 : 12) : "") + (r.bonus ? " +5" : "") || "—") + '</td>' +
         '<td><b>' + (r.total !== null ? r.total : "—") + '</b></td>' +
-        '<td>' + (r.veto ? '🚫 ' : '') + (r.grade ? '<span class="badge ' + r.grade[1] + '">' + r.grade[0] + '</span>' : "—") + (r.stage ? '<div style="font-size:10px;color:#8b949e">' + r.stage.name + '</div>' : '') + '</td>' +
+        '<td>' + (r.veto ? '🚫 ' : '') + (r.grade ? '<span style="font-size:12px;color:' + (r.total >= 90 ? '#30d158' : r.total >= 80 ? '#0a84ff' : '#98989d') + '">' + r.grade[0] + '</span>' : "—") + (r.stage ? '<div style="font-size:11px;color:#98989d">' + r.stage.name + '</div>' : '') + '</td>' +
         '<td>' + (K2 ? fmt(K2.rsi,0) + (K2.rsi >= 70 ? '<span class="up">▲</span>' : K2.rsi <= 30 ? '<span class="dn">▼</span>' : '') : "—") + '</td>' +
         '<td>' + (K2 && K2.pos52 !== null ? fmt(K2.pos52,0) + "%" : "—") + '</td>';
       tb.appendChild(tr);
@@ -664,6 +663,8 @@ const EV_HOT = /美联储|FOMC|CPI|非农|GDP|利率决议|央行|加息|降息|
 const EV_FED = /FOMC|利率决议|美联储主席/;
 const EV_RISK = /违约|破产|退市|战争|冲突|熔断|制裁升级|暴跌|崩盘/i;
 
+// v6.1：聚合源噪音过滤——科技/消费类媒体拉黑；剩余条目须为重要级或命中财经关键词
+var DFN_SRC_BLACKLIST = /IT之家|少数派|虎嗅|36氪|爱范儿|威锋|极客公园|cnBeta|驱动之家|ZOL|太平洋电脑|什么值得买|中关村在线/i;
 function parseDFN(j){
   if(!Array.isArray(j) || !j.length) return null;
   return j.map(function(x){
@@ -672,7 +673,11 @@ function parseDFN(j){
             sub: String(x.summary || "").replace(/\s+/g, " ").slice(0, 80),
             url: x.url, source: x.source || "每日财经",
             imp: x.importance === "high" ? 3 : x.importance === "medium" ? 2 : 1};
-  }).filter(function(x){ return x.text; });
+  }).filter(function(x){
+    if(!x.text) return false;
+    if(DFN_SRC_BLACKLIST.test(x.source)) return false;
+    return x.imp >= 2 || EV_HOT.test(x.text) || EV_WATCH.test(x.text);
+  });
 }
 function parseEM(j){
   const l = j && j.data && j.data.fastNewsList;
@@ -760,7 +765,7 @@ function renderEvents(items){
   const box = document.getElementById("evsrc");
   if(!box) return;
   if(!items){
-    box.innerHTML = '<div class="sig info">⚠️ 事件源全部抓取失败（网络/跨域限制）：请用金十App「只看重要」+ 晨报/晚报兜底。本页技术面评分不受影响。<br><a style="color:#58a6ff" href="https://www.jin10.com/" target="_blank">打开金十数据 ↗</a>　<a style="color:#58a6ff" href="https://glenman.github.io/daily-finance-news/" target="_blank">每日财经新闻 ↗</a></div>';
+    box.innerHTML = '<div class="sig info">⚠️ 事件源全部抓取失败（网络/跨域限制）：请用金十App「只看重要」+ 晨报/晚报兜底。本页技术面评分不受影响。<br><a style="color:#0a84ff" href="https://www.jin10.com/" target="_blank">打开金十数据 ↗</a>　<a style="color:#0a84ff" href="https://glenman.github.io/daily-finance-news/" target="_blank">每日财经新闻 ↗</a></div>';
     return;
   }
   const imp = items.filter(function(x){ return (x.imp || 0) >= 2; });
@@ -768,17 +773,17 @@ function renderEvents(items){
   const low = items.filter(function(x){ return (x.imp || 0) < 2 && !EV_WATCH.test(x.text) && EV_HOT.test(x.text); });
   const show = imp.concat(watch).concat(low).slice(0, 20);
   box.innerHTML =
-    '<div style="font-size:12px;color:#8b949e;margin-bottom:6px">共 ' + items.length + ' 条｜🔴重要 ' + imp.length + '｜⭐自选相关 ' + watch.length +
+    '<div style="font-size:12px;color:#98989d;margin-bottom:6px">共 ' + items.length + ' 条｜🔴重要 ' + imp.length + '｜⭐自选相关 ' + watch.length +
     '｜来源：' + EV_FEED.src + '｜抓取于 ' + EV_FEED.at.toLocaleTimeString("zh-CN") +
-    '｜<a style="color:#58a6ff" href="https://www.jin10.com/" target="_blank">金十↗</a> <a style="color:#58a6ff" href="https://www.cls.cn/" target="_blank">财联社↗</a></div>' +
+    '｜<a style="color:#0a84ff" href="https://www.jin10.com/" target="_blank">金十↗</a> <a style="color:#0a84ff" href="https://www.cls.cn/" target="_blank">财联社↗</a></div>' +
     show.map(function(x){
       const tag = x.country ? '<span class="stk">' + escapeHtml(x.country) + '</span>'
                   : (x.source ? '<span class="stk">' + escapeHtml(String(x.source).slice(0, 6)) + '</span>' : '');
       const mark = (x.imp >= 3) ? '🔴' : (x.imp === 2) ? '🟡' : (EV_WATCH.test(x.text) ? '⭐' : '🔥');
-      const head = x.url ? '<a style="color:#58a6ff;text-decoration:none" href="' + escapeHtml(x.url) + '" target="_blank">' + escapeHtml(x.text.slice(0, 70)) + '</a>'
+      const head = x.url ? '<a style="color:#0a84ff;text-decoration:none" href="' + escapeHtml(x.url) + '" target="_blank">' + escapeHtml(x.text.slice(0, 70)) + '</a>'
                          : escapeHtml(x.text.slice(0, 70));
       return '<div class="sig info" style="margin-bottom:5px;padding:7px 10px">' + tag + mark + ' ' + head +
-             (x.sub ? '<div style="font-size:12px;color:#8b949e;margin-top:2px">' + escapeHtml(x.sub) + '</div>' : '') + '</div>';
+             (x.sub ? '<div style="font-size:12px;color:#98989d;margin-top:2px">' + escapeHtml(x.sub) + '</div>' : '') + '</div>';
     }).join("");
 }
 function loadQuotes(){
