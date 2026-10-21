@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>量化信号监控 v4.4</title>
+<title>量化信号监控 v4.7</title>
 <style>
   body{font-family:-apple-system,"PingFang SC",sans-serif;margin:0;padding:12px;background:#0d1117;color:#e6edf3;font-size:15px}
   .nav{margin:0 0 10px;font-size:14px}
@@ -15,8 +15,6 @@
   button{background:#1f6feb;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:15px}
   button.sec{background:#21262d;border:1px solid #30363d}
   #status{color:#8b949e;font-size:12px;margin:6px 0}
-  .hero{background:rgba(248,81,73,.22);border:2px solid #f85149;border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px;line-height:1.7}
-  .hero.warn{border-color:#d29922;background:rgba(210,153,34,.12)}
   .card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:10px 12px;margin-bottom:10px}
   .card.kf{border-left:3px solid #58a6ff}
   .hd{display:flex;justify-content:space-between;align-items:center;font-size:14px;margin-bottom:6px;flex-wrap:wrap;gap:6px}
@@ -37,8 +35,6 @@
   .sig.crit{background:rgba(248,81,73,.18);border:1px solid #f85149}
   .sig.warn{background:rgba(210,153,34,.15);border:1px solid #d29922}
   .sig.info{background:#161b22;border:1px solid #30363d;color:#c9d1d9}
-  .sig .tag{font-weight:bold;margin-right:6px}
-  .sig.crit .tag{color:#f85149}.sig.warn .tag{color:#d29922}
   .stk{display:inline-block;background:#21262d;border-radius:4px;padding:0 6px;font-size:12px;margin-right:6px;color:#58a6ff}
   .ok{background:#161b22;border:1px solid #30363d;color:#3fb950;padding:10px 12px;border-radius:8px;font-size:14px}
   table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;margin-top:4px}
@@ -56,14 +52,14 @@
   <span style="color:#8b949e"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>🤖 量化信号监控 v4.4 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
+<h1>🤖 量化信号监控 v4.7 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
 </div>
 <div id="status">加载中…</div>
-<div id="hero"></div>
 <h2>📋 预警与信号（操作优先级最高）</h2>
+<div id="sigmeta" style="font-size:12px;color:#8b949e;margin:2px 0 8px"></div>
 <div id="signals"></div>
 <h2>📡 扫描与状态变化（每5分钟全量扫描75只，本机留存·跨天可对比·信号自动自评）</h2>
 <div id="scaninfo" style="font-size:12px;color:#8b949e;margin:4px 0 6px"></div>
@@ -281,33 +277,44 @@ function macdText(K2){
   if(K2.dif < 0) return "MACD空头·DIF<0" + (K2.histExpanding ? "·绿柱放大" : "");
   return "MACD空头";
 }
+function secidOf(code){
+  if(code.indexOf("us") === 0){
+    const t = code.slice(2);
+    const idx = { IXIC:"100.NDX", INX:"100.SPX", DJI:"100.DJIA" };
+    if(idx[t]) return idx[t];
+    const nas = ["NVDA","DRAM","INTC","META","GOOGL","TSLA","KLAC","SOXS","MU","TXN","LRCX"];
+    return (nas.indexOf(t) >= 0 ? "105." : "106.") + t;
+  }
+  if(code.indexOf("sh") === 0) return "1." + code.slice(2);
+  if(code.indexOf("sz") === 0) return "0." + code.slice(2);
+  return null;
+}
+function setK(code, opens, closes, highs, lows, vols){
+  if(closes.length < 30){ window["k_" + code] = null; return; }
+  window["k_" + code] = calcAll(closes, highs, lows, opens, vols);
+}
+function parseEastmoney(code, j){
+  const arr = (j && j.data && j.data.klines) || [];
+  const c = arr.map(function(x){ const p = x.split(","); return [ +p[1], +p[2], +p[3], +p[4], +p[5] ]; });
+  setK(code, c.map(function(x){return x[0];}), c.map(function(x){return x[1];}), c.map(function(x){return x[2];}), c.map(function(x){return x[3];}), c.map(function(x){return x[4];}));
+}
+function parseTencent(code, j){
+  const d = j && j.data && j.data[code];
+  const arr = (d && (d.qfqday || d.day)) || [];
+  setK(code, arr.map(function(x){ return +x[1]; }), arr.map(function(x){ return +x[2]; }), arr.map(function(x){ return +x[3]; }), arr.map(function(x){ return +x[4]; }), arr.map(function(x){ return +x[5]; }));
+}
 function loadKline(code){
-  // JSONP加载（v4.4）：script标签跨域不受CORS限制，8秒超时兜底
-  return new Promise(function(resolve){
-    const cb = "_klcb_" + code.replace(/[^a-zA-Z0-9]/g, "");
-    let settled = false;
-    function done(){ if(settled) return; settled = true; clearTimeout(to); const s = document.getElementById("kls_" + cb); if(s) s.remove(); try{ delete window[cb]; }catch(e){} resolve(); }
-    const to = setTimeout(function(){ window["k_" + code] = null; done(); }, 8000);
-    window[cb] = function(j){
-      try{
-        const d = j && j.data && j.data[code];
-        const arr = (d && (d.qfqday || d.day)) || [];
-        const opens = arr.map(function(x){ return +x[1]; });
-        const closes = arr.map(function(x){ return +x[2]; });
-        const highs = arr.map(function(x){ return +x[3]; });
-        const lows = arr.map(function(x){ return +x[4]; });
-        const vols = arr.map(function(x){ return +x[5]; });
-        if(closes.length < 30) throw 0;
-        window["k_" + code] = calcAll(closes, highs, lows, opens, vols);
-      }catch(e){ window["k_" + code] = null; }
-      done();
-    };
-    const sc = document.createElement("script");
-    sc.id = "kls_" + cb;
-    sc.charset = "utf-8";
-    sc.src = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + code + ",day,,,320,qfq&callback=" + cb;
-    document.body.appendChild(sc);
-  });
+  const sid = secidOf(code);
+  if(!sid){ window["k_" + code] = null; return Promise.resolve(); }
+  return fetch("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + sid + "&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&klt=101&fqt=1&beg=0&end=20500101")
+    .then(function(r){ return r.json(); })
+    .then(function(j){ parseEastmoney(code, j); })
+    .catch(function(){
+      return fetch("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + code + ",day,,,320,qfq")
+        .then(function(r){ return r.json(); })
+        .then(function(j){ parseTencent(code, j); })
+        .catch(function(){ window["k_" + code] = null; });
+    });
 }
 function loadEvents(){
   window.EVENTS = {}; window.ALERTS = []; window.ES = {};
@@ -318,25 +325,6 @@ function loadEvents(){
 let SIGS = [];
 function addSig(sev, stk, text, code){ SIGS.push({sev: sev, stk: stk, text: text, code: code || "", rank: sev === "crit" ? 0 : sev === "warn" ? 1 : 2}); }
 
-function renderHero(){
-  const box = document.getElementById("hero");
-  box.innerHTML = "";
-  const now = Date.now();
-  (window.ALERTS || []).filter(function(a){ return !a.until || new Date(a.until).getTime() > now; }).forEach(function(a){
-    const div = document.createElement("div");
-    div.className = "hero" + (a.lvl === "warn" ? " warn" : "");
-    div.innerHTML = (a.lvl === "red" ? "🔴 " : "🟡 ") + "<b>" + (a.title || "事件预警") + "</b>｜" + a.text;
-    box.appendChild(div);
-  });
-  (window.MACRO || []).forEach(function(m){
-    if(new Date(m.start).getTime() <= now && now <= new Date(m.end).getTime()){
-      const div = document.createElement("div");
-      div.className = "hero warn";
-      div.innerHTML = "🟡 <b>事件窗口：" + m.name + "</b>｜" + m.effect;
-      box.appendChild(div);
-    }
-  });
-}
 function renderCards(rows){
   const box = document.getElementById("cards");
   box.innerHTML = "";
@@ -424,33 +412,37 @@ function renderSignals(){
     });
     SIGS = keep;
   })();
-  SIGS.sort(function(a,b){ return a.rank - b.rank; });
+  SIGS.sort(function(a, b){ return a.rank - b.rank; });
   const box = document.getElementById("signals");
   box.innerHTML = "";
-  const groups = [[0,"🔴 突发/纪律"],[1,"🟡 预警"],[2,"⚪ 观察"]];
-  let any = false;
-  groups.forEach(function(g){
-    const list = SIGS.filter(function(s){ return s.rank === g[0]; });
-    if(!list.length) return;
-    any = true;
-    const h = document.createElement("div");
-    h.style.cssText = "font-size:13px;color:#8b949e;margin:10px 0 6px";
-    h.textContent = g[1] + "（" + list.length + "）";
-    box.appendChild(h);
-    list.forEach(function(s){
-      const div = document.createElement("div");
-      div.className = "sig " + s.sev;
-      const tag = s.rank === 0 ? "【突发】" : s.rank === 1 ? "【预警】" : "【关注】";
-      div.innerHTML = '<span class="tag">' + tag + '</span><span class="stk">' + s.stk + '</span>' + s.text;
-      box.appendChild(div);
-    });
-  });
-  if(!any){
+  if(!SIGS.length){
     const div = document.createElement("div");
     div.className = "ok";
-    div.textContent = "✅ 无突发异动，信号安静。";
+    div.textContent = "✅ 无信号，一切安静。";
     box.appendChild(div);
+    return;
   }
+  SIGS.forEach(function(s, i){
+    const div = document.createElement("div");
+    div.className = "sig " + s.sev;
+    div.innerHTML = '<span style="color:#8b949e;font-size:12px">' + (i + 1) + '.</span> <span class="stk">' + s.stk + '</span>' + s.text;
+    box.appendChild(div);
+  });
+}
+function renderScan(){
+  document.getElementById("scaninfo").textContent = "上次全量扫描：" + (SCAN_META.time || "—") + "（每5分钟自动扫描全部75只，入选/掉出/阶段跃迁自动记录本机，跨天可对比）" + (SCAN_META.stats || "");
+  const box = document.getElementById("changes");
+  box.innerHTML = "";
+  if(!SCAN_META.changes.length){
+    box.innerHTML = '<div class="ok">📡 首次全量扫描将建立基线，之后的入选/掉出/阶段跃迁/信号自评都会记录在此。</div>';
+    return;
+  }
+  SCAN_META.changes.forEach(function(c){
+    const div = document.createElement("div");
+    div.className = "sig info";
+    div.innerHTML = '<span style="color:#8b949e;font-size:12px">' + c.time + '</span>　' + c.ic + ' ' + c.tx;
+    box.appendChild(div);
+  });
 }
 function stageOf(price, K){
   if(!K) return null;
@@ -521,21 +513,7 @@ function diffScan(rows){
   }
   return {time: now.toLocaleString("zh-CN", {hour12:false}), changes: log, stats: stats};
 }
-function renderScan(){
-  document.getElementById("scaninfo").textContent = "上次全量扫描：" + (SCAN_META.time || "—") + "（每5分钟自动扫描全部75只，入选/掉出/阶段跃迁自动记录本机，跨天可对比）" + (SCAN_META.stats || "");
-  const box = document.getElementById("changes");
-  box.innerHTML = "";
-  if(!SCAN_META.changes.length){
-    box.innerHTML = '<div class="ok">📡 首次全量扫描将建立基线，之后的入选/掉出/阶段跃迁/信号自评都会记录在此。</div>';
-    return;
-  }
-  SCAN_META.changes.forEach(function(c){
-    const div = document.createElement("div");
-    div.className = "sig info";
-    div.innerHTML = '<span style="color:#8b949e;font-size:12px">' + c.time + '</span>　' + c.ic + ' ' + c.tx;
-    box.appendChild(div);
-  });
-}
+
 function render(){
   SIGS = [];
   const tb = document.querySelector("#tbl tbody");
@@ -580,7 +558,6 @@ function render(){
     rows.push(r);
   });
   MACRO_ON = (window.MACRO || []).some(function(m){ const t = Date.now(); return new Date(m.start).getTime() <= t && t <= new Date(m.end).getTime(); });
-  renderHero();
   renderCards(rows);
   GROUPS.forEach(function(g){
     const trg = document.createElement("tr");
@@ -629,6 +606,12 @@ function render(){
   });
   (window.ALERTS || []).forEach(function(a){
     if(!a.until || new Date(a.until).getTime() > Date.now()) addSig("crit", a.title || "重大事件", a.text);
+  });
+  const metaEl = document.getElementById("sigmeta");
+  if(metaEl) metaEl.textContent = window.META ? ("事件数据更新于 " + window.META.updated + "｜来源：" + window.META.by + "｜" + window.META.note) : "";
+  (window.MACRO || []).forEach(function(m){
+    const t = Date.now();
+    if(new Date(m.start).getTime() <= t && t <= new Date(m.end).getTime()) addSig("warn", "事件窗口", m.name + "：" + m.effect);
   });
   renderSignals();
   if(doDiff){ SCAN_META = diffScan(rows); doDiff = false; }
