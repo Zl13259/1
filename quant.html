@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>量化信号监控 v3</title>
+<title>量化信号监控 v4</title>
 <style>
   body{font-family:-apple-system,"PingFang SC",sans-serif;margin:0;padding:12px;background:#0d1117;color:#e6edf3;font-size:15px}
   h1{font-size:17px;margin:4px 0 10px}
@@ -21,7 +21,7 @@
   .marker{position:absolute;top:-7px;width:3px;height:34px;background:#fff;border-radius:2px;box-shadow:0 0 4px #000}
   .tmarker{position:absolute;top:-13px;width:2px;height:46px;background:#58a6ff;border-top:6px solid #58a6ff}
   .zlbl{display:flex;font-size:10px;color:#8b949e;margin:2px 2px 6px}
-  .zlbl span{text-align:center}
+  .zlbl span{text-align:center;font-size:10px;line-height:1.5}.zlbl span:first-line{color:#c9d1d9;font-size:11px}
   .act{font-size:13px;margin-top:4px;color:#c9d1d9}
   /* 信号 */
   #signals{margin:10px 0}
@@ -49,7 +49,7 @@
 </style>
 </head>
 <body>
-<h1>🤖 量化信号监控 v3 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
+<h1>🤖 量化信号监控 v4 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
 <div class="bar">
   <button onclick="loadAll()">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -67,7 +67,9 @@
 <div class="note">
   <b>区间条五档含义</b>（按本机成本计算，与账本纪律一致）：强制清仓区(≤-20%)｜纪律区(-20~-15%，必须执行动作)｜预警区(-15~-10%，复核逻辑)｜持有区(-10~+15%)｜盈利区(&gt;+15%)。白游标=现价位置，蓝线=你设的目标价。<br>
   <b>52周位</b>=现价在52周高低区间中的位置（100%=一年新高，0%=一年新低）。<br>
-  信号三级排序：🔴立即操作 → 🟡今日复核 → ⚪观察（折叠）。量比仅A股有效。本页只做监控提醒，不构成交易建议。
+  信号三级排序：🔴立即操作 → 🟡今日复核 → ⚪观察（折叠）。<br>
+<b>动态波动带</b>：MA20±2×ATR14，衡量"正常波动该在什么范围"，触轨≠买卖点；<b>趋势评估</b>：均线排列+RSI+52周位置的规则推演。<br>
+<b>📰事件标签</b>：来自仓库内 events.js（由 Kimi 定期生成，覆盖行业趋势/新闻催化），无此文件则该区块自动隐藏。量比仅A股有效。本页只做监控提醒，不构成交易建议。
 </div>
 <script>
 const LIST = [
@@ -125,8 +127,14 @@ function renderCards(rows){
         '<div class="marker" style="left:' + zoneOf(d) + '%"></div>' +
         (tgt ? '<div class="tmarker" style="left:' + zoneOf((tgt/c-1)*100) + '%"></div>' : "") +
       '</div>' +
-      '<div class="zlbl"><span style="width:22%">清仓≤-20%</span><span style="width:14%">纪律</span><span style="width:14%">预警</span><span style="width:32%">持有-10~+15%</span><span style="width:18%">盈利&gt;+15%</span></div>' +
-      '<div class="act">' + adviceOf(d, tgt) + '</div>';
+      '<div class="zlbl"><span style="width:22%">' + fmt(c*0.8) + '<br>清仓线</span><span style="width:14%">' + fmt(c*0.85) + '<br>-15%</span><span style="width:14%">' + fmt(c*0.9) + '<br>-10%</span><span style="width:32%">' + fmt(c) + '<br>成本</span><span style="width:18%">' + fmt(c*1.15) + '<br>盈利线</span></div>' +
+      '<div class="act">' + adviceOf(d, tgt) + '</div>' +
+      (r.K && r.K.atr && r.K.ma20 ?
+        '<div class="act">📐 动态波动带（MA20±2×ATR14）：常态区 ' + fmt(r.K.ma20 - 2*r.K.atr) + ' ~ ' + fmt(r.K.ma20 + 2*r.K.atr) +
+        '｜20日支撑 ' + fmt(r.K.ll20) + '｜20日压力 ' + fmt(r.K.hh20) +
+        '<br><span style="color:#8b949e;font-size:12px">跌破下轨=超跌（关注反弹或止损），突破上轨=超涨（不追）</span></div>' : "") +
+      (trendView(r) ? '<div class="act">' + trendView(r) + '</div>' : "") +
+      (window.EVENTS && window.EVENTS[r.code] ? '<div class="act" style="color:#d29922">📰 ' + window.EVENTS[r.code] + '</div>' : "");
     box.appendChild(card);
   });
 }
@@ -206,7 +214,17 @@ function loadKline(code){
         const l52 = Math.min.apply(null, lows.slice(-250));
         if(h52 > l52) pos52 = (closes[closes.length-1] - l52) / (h52 - l52) * 100;
       }
-      window["k_" + code] = { trend: k, pos20: h20 > l20 ? (closes[closes.length-1] - l20) / (h20 - l20) * 100 : null, pos52: pos52 };
+      let atr = null;
+      if(closes.length >= 15){
+        let s = 0;
+        for(let i = closes.length - 14; i < closes.length; i++){
+          const tr = Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1]));
+          s += tr;
+        }
+        atr = s / 14;
+      }
+      window["k_" + code] = { trend: k, pos20: h20 > l20 ? (closes[closes.length-1] - l20) / (h20 - l20) * 100 : null, pos52: pos52,
+                              atr: atr, ma20: k ? k.ma20 : null, hh20: h20, ll20: l20 };
     })
     .catch(function(){ window["k_" + code] = null; });
 }
@@ -312,7 +330,25 @@ function loadKlines(){
     render();
   });
 }
-function loadAll(){ loadKlines(); loadQuotes(); }
+function loadEvents(){
+  window.EVENTS = {};
+  return fetch("./events.js").then(function(r){ if(!r.ok) throw 0; return r.text(); }).then(function(txt){
+    try { new Function(txt)(); } catch(e) {}
+  }).catch(function(){});
+}
+function trendView(r){
+  if(!r.K || !r.K.trend || !r.K.ma20) return null;
+  let s = 0; const parts = [];
+  if(r.price > r.K.ma20){ s++; parts.push("价在MA20上方"); } else { s--; parts.push("价在MA20下方"); }
+  if(r.K.trend.ma5 > r.K.ma20){ s++; parts.push("MA5>MA20"); } else { s--; parts.push("MA5<MA20"); }
+  let label = s >= 2 ? "偏多" : s <= -2 ? "偏空" : "震荡";
+  if(r.K.trend.rsi >= 70) label += "·超买";
+  if(r.K.trend.rsi <= 30) label += "·超卖";
+  if(r.K.pos52 !== null && r.K.pos52 >= 95) parts.push("近一年新高区");
+  if(r.K.pos52 !== null && r.K.pos52 <= 5) parts.push("近一年新低区");
+  return "趋势评估：" + label + "（" + parts.join("，") + "）——规则推演，非预测保证";
+}
+function loadAll(){ loadKlines(); loadEvents(); loadQuotes(); }
 function toggleAuto(){
   auto = !auto;
   document.getElementById("autoBtn").textContent = "自动刷新：" + (auto ? "开（60秒）" : "关");
