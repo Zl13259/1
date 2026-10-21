@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v6.5</title>
+<title>信号监控 v7.0</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v6.5</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.0</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,7 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.0 架构重构</b>：数据层整体换成测试版实证的腾讯系fetch直连（fetch+GBK解码报价、web.ifzq.gtimg.cn K线主源320根、内存5分钟TTL缓存、5 worker限速），无script标签/无东财/无localStorage K线缓存；信号评分体系（七维100分/六阶段/超跌通道/一票否决/板块联动）原样保留。<br>
   <b>技术评分（v5.1·100分制·纯量价指标）</b>：成长型=均线(17)+MACD(17)+20日位置(25)+RSI(8)+KDJ(8)+量能(17)+支撑距离(8)（价值/周期型权重见代码WP表，各自合计100）；超跌反转触发+20、企稳+12、放量创20日新高+5。<b>事件分已移除</b>：事件信息看上方"重要事件"区，主观判断在晨报/晚报。<br>
   <b>分级</b>：≥90 🔥交易候选｜80-89 ⭐重点关注（自动入选上方分析区）｜60-79 观察｜<60 弱势。每5分钟重算，动态进出。<br>
   <b>板块分类计权</b>：成长/科技=动量权重（位置越高越强）；价值/红利=慢趋势+回踩支撑权重（银行/电力类暴量反而是异常）；周期资源=位置权重（20日低位才是低吸区，高位是高抛区）。8只板块龙头（茅台/美的/平安/海油/神华/迈瑞/东财/比亚迪）只当"温"度计，不入机会池——用于看风格切换，不用于发买入信号。<br>
@@ -92,13 +93,14 @@
   v6.4：事件层重写——双直连源+本地news.json自动化钩子+📥手动粘贴兜底区（CORS拦截时复制金十App快讯粘贴即可）；能打开网站≠网页能抓取（跨域安全策略）。<br>
   📅重要事件区：东财快讯+金十日历双权威源并行抓取；🔴重要新闻与⭐自选相关词自动置顶，风险类关键词自动生成红色预警；盘中异动（涨跌±5%、振幅>8%、量比>3）由页面自动检测；同板块≥3只齐发同类信号自动合并为板块联动一条。本页为技术面参考，不构成交易建议；成本与纪律分析见晨报/晚报。
 </div>
+<script src="./list.js">
 <script src="./list.js"></script>
 <script>
 // ===== 思路致谢（仅借鉴方法论，本文件全部代码原创，未复制任何项目代码）=====
 // Minervini趋势模板/RS相对强度/市场宽度：思想借鉴自 xang1234/stock-screener（GitHub）
 // 趋势过滤(MA60门)/交易成本模型：思想借鉴自 grid-stock（GitHub）
 // 情绪极值预警：思想借鉴自 henrylin99/quantitative_analysis（GitHub）
-// 事件数据源：东财快讯/金十日历公开接口（v6.3起，原聚合源daily-finance-news已移除）
+// 数据层架构（fetch直连/GBK解码/worker限速）：借鉴自用户自建测试版监控台（2026-10-21实证可行）
 const LIST = window.STOCK_LIST || [];
 function isHold(code){ return (window.HOLD_CODES || []).indexOf(code) >= 0; }
 function sectorOf(code){ return (window.SECTORS && window.SECTORS[code]) || "其他"; }
@@ -113,11 +115,112 @@ const GROUPS = [
 ];
 const KSET = [];
 for(let i = 0; i < LIST.length; i++) KSET.push(i);
-let auto = true, timer = null, kdReady = false, doDiff = false, MACRO_ON = false, BENCH_RET20 = null;
+let auto = true, timer = null, doDiff = false, MACRO_ON = false, BENCH_RET20 = null;
 let SCAN_META = {stats: ""};
 function fmt(n, d){ if(!isFinite(n)) return "—"; return (+n).toFixed(d === undefined ? 2 : d); }
 
-// ---------- 指标计算 ----------
+// ===== 数据层（v7.0架构重构：全部采用测试版实证的腾讯系fetch直连——无script标签、无东财、无localStorage K线缓存） =====
+let quotes = {};      // code -> {price,pct,high,low,volratio,turn,vol,amt}
+let KMAP = {};        // code -> calcAll结果
+let kLast = {};       // code -> K线加载时间戳（内存TTL缓存，轻量可靠）
+const K_TTL = 5 * 60e3;
+function fetchGBK(url){
+  return fetch(url, {cache: "no-store"}).then(function(r){
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    return r.arrayBuffer();
+  }).then(function(b){
+    try{ return new TextDecoder("gbk").decode(b); }catch(e){ return new TextDecoder().decode(b); }
+  });
+}
+function fetchJSON(url, ms){
+  const ctl = new AbortController();
+  const t = setTimeout(function(){ ctl.abort(); }, ms || 9000);
+  return fetch(url, {signal: ctl.signal}).then(function(r){
+    clearTimeout(t);
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }, function(e){ clearTimeout(t); throw e; });
+}
+const fetchTO = fetchJSON;
+function loadQuotes(){
+  const BATCH = 40;
+  let chain = Promise.resolve();
+  for(let i = 0; i < LIST.length; i += BATCH){
+    (function(cs){
+      chain = chain.then(function(){
+        return fetchGBK("https://qt.gtimg.cn/q=" + cs.join(",") + "&_=" + Date.now()).then(function(txt){
+          const re = /v_([a-z]{2}[0-9A-Za-z.]+)="([^"]*)"/g; let m;
+          while((m = re.exec(txt))){
+            const f = m[2].split("~");
+            const num = function(v){ const n = parseFloat(v); return isFinite(n) ? n : null; };
+            const price = num(f[3]), pre = num(f[4]);
+            quotes[m[1]] = {
+              price: price,
+              pct: (price != null && pre) ? (price - pre) / pre * 100 : null,
+              high: num(f[33]), low: num(f[34]),
+              vol: num(f[36]), amt: num(f[37]), turn: num(f[38]),
+              volratio: (num(f[49]) > 0 && num(f[49]) < 50) ? num(f[49]) : null
+            };
+          }
+        });
+      }).then(function(){ return new Promise(function(r){ setTimeout(r, 150); }); });
+    })(LIST.slice(i, i + BATCH).map(function(s){ return s[0]; }));
+  }
+  return chain;
+}
+function setK(code, bars){
+  if(!bars || bars.length < 30){ KMAP[code] = null; return; }
+  KMAP[code] = calcAll(
+    bars.map(function(b){ return b[1]; }),
+    bars.map(function(b){ return b[2]; }),
+    bars.map(function(b){ return b[3]; }),
+    bars.map(function(b){ return b[0]; }),
+    bars.map(function(b){ return b[4]; })
+  );
+}
+function loadKlines(force){
+  const now = Date.now();
+  const need = KSET.map(function(i){ return LIST[i][0]; }).filter(function(c){
+    return force || !kLast[c] || (now - kLast[c]) > K_TTL;
+  });
+  let idx = 0;
+  function worker(){
+    const steps = [];
+    while(idx < need.length){
+      (function(c){
+        steps.push((function(){
+          const tq = c.indexOf("us") === 0 ? c + ".OQ" : c;
+          return fetchJSON("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now(), 9000)
+            .then(function(j){
+              const d = (j && j.data && (j.data[tq] || j.data[c])) || {};
+              const arr = d.qfqday || d.day || [];
+              let bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
+              if(!bars.length && c !== tq){
+                return fetchJSON("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + c + ",day,,,320,qfq&_=" + Date.now(), 9000)
+                  .then(function(j2){
+                    const d2 = (j2 && j2.data && (j2.data[c] || j2.data[tq])) || {};
+                    const arr2 = d2.qfqday || d2.day || [];
+                    bars = arr2.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
+                    if(!bars.length) return;
+                    kLast[c] = now; setK(c, bars);
+                  });
+              }
+              if(!bars.length) return;
+              kLast[c] = now; setK(c, bars);
+            })
+            .catch(function(){ /* 保留旧数据，下次TTL到了再试 */ })
+            .then(function(){ return new Promise(function(r){ setTimeout(r, 120); }); });
+        })());
+      })(need[idx++]);
+    }
+    return Promise.all(steps);
+  }
+  const ws = [];
+  for(let w = 0; w < 5; w++) ws.push(worker());
+  return Promise.all(ws);
+}
+
+// ---------- 指标计算与评分（v5.1体系原样保留） ----------
 function calcAll(closes, highs, lows, opens, vols){
   const n = closes.length;
   if(n < 30) return null;
@@ -255,6 +358,7 @@ function calcAll(closes, highs, lows, opens, vols){
            pos20: h20 > l20 ? (price - l20) / (h20 - l20) * 100 : null,
            ret20: (n >= 21 && closes[n-21] > 0) ? (closes[n-1] / closes[n-21] - 1) * 100 : null };
 }
+
 function techScore(r, K2){
   if(!K2) return null;
   // 板块分类计权（2026-10-21 v4.2）：成长看动量、价值看慢趋势+回踩、周期看位置
@@ -291,12 +395,14 @@ function techScore(r, K2){
   if(K2.sup1 && K2.atr){ const dd = Math.abs(r.price - K2.sup1) / K2.atr; s += dd <= 0.5 ? W.sup : dd <= 1 ? W.sup * 0.7 : W.sup * 0.3; } else s += W.sup * 0.3;
   return Math.round(Math.min(100, s));
 }
+
 function gradeOf(total){
   if(total >= 90) return ["🔥交易候选","b-s2"];
   if(total >= 80) return ["⭐重点关注","b-s1"];
   if(total >= 60) return ["◎观察","b-0"];
   return ["—弱势—","b-w2"];
 }
+
 function macdText(K2){
   if(K2.crossUp) return "MACD金叉" + (K2.hist > 0 ? "·红柱放大" : "");
   if(K2.crossDn) return "MACD死叉" + (K2.hist < 0 ? "·绿柱放大" : "");
@@ -305,114 +411,26 @@ function macdText(K2){
   if(K2.dif < 0) return "MACD空头·DIF<0" + (K2.histExpanding ? "·绿柱放大" : "");
   return "MACD空头";
 }
-function secidOf(code){
-  if(code.indexOf("us") === 0){
-    const t = code.slice(2);
-    const idx = { IXIC:"100.NDX", INX:"100.SPX", DJI:"100.DJIA" };
-    if(idx[t]) return idx[t];
-    const nas = ["NVDA","DRAM","INTC","META","GOOGL","TSLA","KLAC","SOXS","MU","TXN","LRCX"];
-    return (nas.indexOf(t) >= 0 ? "105." : "106.") + t;
-  }
-  if(code.indexOf("sh") === 0) return "1." + code.slice(2);
-  if(code.indexOf("sz") === 0) return "0." + code.slice(2);
-  return null;
-}
-function setK(code, opens, closes, highs, lows, vols){
-  if(closes.length < 30){ window["k_" + code] = null; return; }
-  window["k_" + code] = calcAll(closes, highs, lows, opens, vols);
-}
-// ---------- K线缓存（v6.3核心优化）：日级缓存+盘中实时拼接 ----------
-// 原实现：83只标的每次都拉"上市以来全历史"且每5分钟全量重拉 = 页面卡顿主因。
-// 现实现：每标的每天只拉一次(lmt=320根)；盘中用实时行情合成当日K线，网络请求量降约95%。
-const KCK = "qk63_";
-function ystr(){ const d = new Date(); d.setDate(d.getDate() - 1); return dstr(d); }
-function kcRead(code){
-  try{
-    const s = localStorage.getItem(KCK + code);
-    if(!s) return null;
-    const p = s.indexOf("|");
-    return {date: s.slice(0, p), bars: s.slice(p + 1).split(";").map(function(b){ return b.split(",").map(Number); })};
-  }catch(e){ return null; }
-}
-function kcWrite(code, date, bars){
-  try{ localStorage.setItem(KCK + code, date + "|" + bars.map(function(b){ return b.map(function(x){ return +x.toFixed(4); }).join(","); }).join(";")); }catch(e){}
-}
-function emBars(j){
-  const arr = (j && j.data && j.data.klines) || [];
-  return arr.map(function(x){ const p = x.split(","); return [ +p[1], +p[2], +p[3], +p[4], +p[5] ]; });
-}
-function setKraw(code, bars){
-  setK(code, bars.map(function(b){return b[0];}), bars.map(function(b){return b[3];}), bars.map(function(b){return b[1];}), bars.map(function(b){return b[2];}), bars.map(function(b){return b[4];}));
-}
-// 盘中：用实时行情把当日K线拼到历史末尾（开/高/低/现/量），日线级别指标随行情实时更新
-function patchLive(code){
-  const bars = window["__bars_" + code];
-  if(!bars) return;
-  const raw = window["v_" + code];
-  if(!raw){ setKraw(code, bars); return; }
-  const f = raw.split("~");
-  const open = +f[5], high = +f[33], low = +f[34], price = +f[3], vol = +f[36];
-  if(!(price > 0) || !(high >= low)){ setKraw(code, bars); return; }
-  const b2 = bars.slice(0, -1);
-  b2.push([open > 0 ? open : price, high > 0 ? high : price, low > 0 ? low : price, price, vol > 0 ? vol : (bars[bars.length - 1][4] || 0)]);
-  setKraw(code, b2);
-}
-function applyBars(code, bars){
-  if(!bars || bars.length < 30){ window["k_" + code] = null; window["__bars_" + code] = null; return; }
-  window["__bars_" + code] = bars;
-  patchLive(code);
-}
-function loadKline(code){
-  const today = dstr(new Date());
-  const c = kcRead(code);
-  if(c && (c.date === today || c.date === ystr())){
-    applyBars(code, c.bars);
-    window.__kcHit = (window.__kcHit || 0) + 1;
-    return Promise.resolve();
-  }
-  // v6.5：腾讯ifzq kline升为主源（测试版实证web.ifzq.gtimg.cn对跨域fetch放行）；美股.OQ后缀优先、原生代码兜底；东财降为备用
-  const tq = code.indexOf("us") === 0 ? code + ".OQ" : code;
-  return fetchTO("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now(), 9000)
-    .then(function(r){ return r.json(); })
-    .then(function(j){
-      const d = (j && j.data && (j.data[tq] || j.data[code])) || {};
-      const arr = d.qfqday || d.day || [];
-      let bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
-      if(!bars.length && code !== tq){
-        return fetchTO("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + code + ",day,,,320,qfq&_=" + Date.now(), 9000)
-          .then(function(r2){ return r2.json(); })
-          .then(function(j2){
-            const d2 = (j2 && j2.data && (j2.data[code] || j2.data[tq])) || {};
-            const arr2 = d2.qfqday || d2.day || [];
-            bars = arr2.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
-            if(!bars.length) throw 0;
-            kcWrite(code, today, bars); applyBars(code, bars);
-          });
-      }
-      if(!bars.length) throw 0;
-      kcWrite(code, today, bars);
-      applyBars(code, bars);
-    })
-    .catch(function(){
-      const sid = secidOf(code);
-      if(!sid){ window["k_" + code] = null; return; }
-      return fetchTO("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + sid + "&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&klt=101&fqt=1&lmt=320&end=20500101&_=" + Date.now(), 9000)
-        .then(function(r){ return r.json(); })
-        .then(function(j){
-          const bars = emBars(j);
-          if(!bars.length) throw 0;
-          kcWrite(code, today, bars);
-          applyBars(code, bars);
-        })
-        .catch(function(){ if(!kcRead(code)) window["k_" + code] = null; });
-    });
-}
-let SIGS = [];
-// v5.7：事件层=多源自动抓取；一票否决=页面自动规则（放量破20日低点+大盘豁免）；主观判断在晨报·晚报。
-let EV_FEED = {items: [], src: null, at: null, alerts: [], macro: false};
 
+function stageOf(price, K){
+  if(!K) return null;
+  const pos = K.pos52 !== null ? K.pos52 : (K.pos20 !== null ? K.pos20 : 50);
+  const bull = K.ma5 > K.ma10 && K.ma10 > K.ma20;
+  const bear = K.ma5 < K.ma10 && K.ma10 < K.ma20;
+  if(K.pos20 !== null && K.pos20 >= 90 && K.rsi >= 70 && !K.histExpanding) return {id:5, name:"高位滞涨", cls:"b-w1"};
+  if(price > K.ma20 && bull && K.pos20 !== null && K.pos20 >= 80) return {id:4, name:"主升段", cls:"b-s2"};
+  if(bear && price < K.ma20) return pos <= 15 ? {id:1, name:"深跌·底部区", cls:"b-w2"} : {id:6, name:"下跌通道", cls:"b-w1"};
+  if(pos <= 20 && price >= K.ma5) return {id:2, name:"筑底企稳", cls:"b-0"};
+  if(price > K.ma20 && K.ma5 > K.ma10 && !bull) return {id:3, name:"反转确认初期", cls:"b-s1"};
+  return {id:0, name:"震荡", cls:"b-0"};
+}
+
+
+let SIGS = [];
+let EV_FEED = {items: [], src: null, at: null, alerts: [], macro: false};
 function addSig(sev, stk, text, code){ SIGS.push({sev: sev, stk: stk, text: text, code: code || "", rank: sev === "crit" ? 0 : sev === "warn" ? 1 : 2}); }
 
+// ---------- 渲染 ----------
 function renderCards(rows){
   const box = document.getElementById("cards");
   box.innerHTML = "";
@@ -474,6 +492,7 @@ function renderCards(rows){
     box.appendChild(card);
   });
 }
+
 function trendText(K2){
   const parts = [];
   parts.push(K2.ma5 > K2.ma10 && K2.ma10 > K2.ma20 ? "均线多头排列" : (K2.ma5 < K2.ma10 && K2.ma10 < K2.ma20 ? "均线空头排列" : "均线纠缠"));
@@ -482,124 +501,21 @@ function trendText(K2){
   if(K2.pos20 !== null) parts.push("20日位" + fmt(K2.pos20,0) + "%");
   return '<div class="ln">📊 ' + parts.join("｜") + '</div>';
 }
-function renderSignals(){
-  // 板块联动合并：同板块同日>=3只齐发同类信号时合并为一条（防同源信号刷屏）
-  (function(){
-    const keep = [], buckets = {};
-    SIGS.forEach(function(s){
-      const m = s.text.match(/(大涨|大跌|MACD金叉|MACD死叉|RSI14=)/);
-      if(m && s.code && s.code !== ""){
-        const key = sectorOf(s.code) + "|" + m[1];
-        (buckets[key] = buckets[key] || []).push(s);
-      } else keep.push(s);
-    });
-    Object.keys(buckets).forEach(function(k){
-      const b = buckets[k];
-      if(b.length >= 3){
-        const sev = b[0].sev === "crit" ? "warn" : b[0].sev;
-        const names = b.map(function(x){ return x.stk; }).join("/");
-        keep.push({sev: sev, stk: k.split("|")[0], code: "",
-          text: "板块联动：(" + names + ") 共" + b.length + "只齐发同类信号——同源驱动，一荣俱荣一损俱损，勿按个股信号分别行动",
-          rank: b[0].rank});
-      } else { keep.push.apply(keep, b); }
-    });
-    SIGS = keep;
-  })();
-  SIGS.sort(function(a, b){ return a.rank - b.rank; });
-  const box = document.getElementById("signals");
-  box.innerHTML = "";
-  if(!SIGS.length){
-    const div = document.createElement("div");
-    div.className = "ok";
-    div.textContent = "✅ 无信号，一切安静。";
-    box.appendChild(div);
-    return;
-  }
-  SIGS.forEach(function(s, i){
-    const div = document.createElement("div");
-    div.className = "sig " + s.sev;
-    div.innerHTML = '<span style="color:#98989d;font-size:12px">' + (i + 1) + '.</span> <span class="stk">' + s.stk + '</span>' + s.text;
-    box.appendChild(div);
-  });
-}
-function renderScan(){
-  // v5.6：扫描变化日志已隐藏（不再刷屏）；信号自评仍在后台运行，仅在此输出一行统计
-  const el = document.getElementById("sigmeta");
-  if(el && SCAN_META && SCAN_META.stats){
-    el.textContent = el.textContent.replace(/｜近\d+个信号：.*$/, "") + SCAN_META.stats;
-  }
-}
-function stageOf(price, K){
-  if(!K) return null;
-  const pos = K.pos52 !== null ? K.pos52 : (K.pos20 !== null ? K.pos20 : 50);
-  const bull = K.ma5 > K.ma10 && K.ma10 > K.ma20;
-  const bear = K.ma5 < K.ma10 && K.ma10 < K.ma20;
-  if(K.pos20 !== null && K.pos20 >= 90 && K.rsi >= 70 && !K.histExpanding) return {id:5, name:"高位滞涨", cls:"b-w1"};
-  if(price > K.ma20 && bull && K.pos20 !== null && K.pos20 >= 80) return {id:4, name:"主升段", cls:"b-s2"};
-  if(bear && price < K.ma20) return pos <= 15 ? {id:1, name:"深跌·底部区", cls:"b-w2"} : {id:6, name:"下跌通道", cls:"b-w1"};
-  if(pos <= 20 && price >= K.ma5) return {id:2, name:"筑底企稳", cls:"b-0"};
-  if(price > K.ma20 && K.ma5 > K.ma10 && !bull) return {id:3, name:"反转确认初期", cls:"b-s1"};
-  return {id:0, name:"震荡", cls:"b-0"};
-}
-
-// ---------- 全量扫描对比与信号自评 ----------
-// v5.7：扫描变化日志已移除（v5.6起不再展示）；diffScan只保留信号自评内核——
-// 记录入选信号触发价、5个自然日后结算、统计胜率（≥5样本显示），用于校准评分权重。
-function diffScan(rows){
-  const now = new Date();
-  const DAY = 86400000;
-  let prev = {}; try{ prev = JSON.parse(localStorage.getItem("qscan_state_v5") || "{}"); }catch(e){}
-  let entries = []; try{ entries = JSON.parse(localStorage.getItem("qscan_entries") || "[]"); }catch(e){}
-  const cur = {}; const byCode = {}; const watch = [];
-  rows.forEach(function(r){ if(r.K) byCode[r.code] = r; });
-  rows.forEach(function(r){
-    if(!r.K) return;
-    cur[r.code] = {t: r.total, v: r.rev, b: r.bonus > 0 ? 1 : 0};
-    const p = prev[r.code];
-    if(!p) return;
-    if((r.total !== null && r.total >= 80 && (p.t === null || p.t === undefined || p.t < 80)) ||
-       (r.rev === 3 && p.v !== 3) ||
-       (r.bonus > 0 && !p.b)) watch.push(r);
-  });
-  entries.forEach(function(e){
-    if(e.done) return;
-    if(now.getTime() - e.ts >= 5 * DAY){
-      const r = byCode[e.code];
-      if(!r) return;
-      e.done = true; e.res = (r.price - e.price) / e.price * 100;
-    }
-  });
-  watch.forEach(function(r){ if(!r.veto) entries.unshift({code: r.code, name: r.name, price: r.price, ts: now.getTime(), done: false}); });
-  entries = entries.slice(0, 60);
-  try{ localStorage.setItem("qscan_state_v5", JSON.stringify(cur)); }catch(e){}
-  try{ localStorage.setItem("qscan_entries", JSON.stringify(entries)); }catch(e){}
-  const done = entries.filter(function(e){ return e.done && e.res !== undefined; }).slice(0, 20);
-  let stats = "";
-  if(done.length >= 5){
-    const wins = done.filter(function(e){ return e.res > 0; }).length;
-    const avg = done.reduce(function(a, e){ return a + e.res; }, 0) / done.length;
-    stats = "｜近" + done.length + "个信号：胜率" + Math.round(wins / done.length * 100) + "% 平均" + (avg > 0 ? "+" : "") + avg.toFixed(1) + "%（样本≥5才显示，用于校准权重）";
-  }
-  return {stats: stats};
-}
 
 function render(){
   SIGS = [];
-  // v6.3：每次渲染前用实时行情刷新缓存K线的当日bar，保证日线指标盘中实时
-  LIST.forEach(function(s){ if(window["__bars_" + s[0]]) patchLive(s[0]); });
   const tb = document.querySelector("#tbl tbody");
   tb.innerHTML = "";
   const rows = [];
   let ok = 0, fail = 0;
   LIST.forEach(function(s, i){
-    const raw = window["v_" + s[0]];
-    if(!raw){ fail++; return; }
+    const q = quotes[s[0]];
+    if(!q || q.price == null){ fail++; return; }
     ok++;
-    const f = raw.split("~");
-    const price = +f[3], pct = +f[32], high = +f[33], low = +f[34];
-    const volratio = (+f[49] > 0 && +f[49] < 50) ? +f[49] : null;
+    const price = q.price, pct = q.pct, high = q.high, low = q.low;
+    const volratio = q.volratio;
     const isA = s[0].indexOf("us") !== 0;
-    const K = window["k_" + s[0]];
+    const K = KMAP[s[0]];
     if(K) K.price = price;
     if(s[0] === "sh000001" && K && K.ret20 !== null) BENCH_RET20 = K.ret20;
     const r = {ci:i, name:s[1], code:s[0], price:price, pct:pct, high:high, low:low, volratio:volratio, isA:isA, K:K};
@@ -716,23 +632,104 @@ function render(){
   renderScan();
   const now = new Date();
   document.getElementById("clock").textContent = now.toLocaleTimeString("zh-CN");
-  let kN = 0; LIST.forEach(function(s){ if(window["k_" + s[0]]) kN++; });
+  let kN = 0; LIST.forEach(function(s){ if(KMAP[s[0]]) kN++; });
+  const kAge = kLast[LIST[0][0]] ? Math.max(0, Math.round((Date.now() - kLast[LIST[0][0]]) / 60000)) : null;
   document.getElementById("status").textContent = "已更新 " + now.toLocaleTimeString("zh-CN") +
     "｜行情" + ok + "成功/" + fail + "失败｜指标" + kN + "/" + LIST.length +
-    (window.__kcHit ? "（缓存命中" + window.__kcHit + "）" : "（全量拉取）") +
+    "｜K线" + (kAge === null ? "未加载" : kAge + "分钟前") +
     "｜事件源：" + (EV_FEED.src || "加载中…");
 }
-// ---------- 事件信息源：多源级联自动抓取（仅展示不入评分；全部失败才降级提示） ----------
-function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
-function fetchTO(url, ms){
-  // v6.3：AbortController真取消（原Promise.race只是放弃等待，连接仍挂着占资源）
-  const ctl = new AbortController();
-  const t = setTimeout(function(){ ctl.abort(); }, ms || 9000);
-  return fetch(url, {signal: ctl.signal}).then(function(r){ clearTimeout(t); return r; }, function(e){ clearTimeout(t); throw e; });
-}
-function dstr(d){ return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
 
-// 自选相关关键词：命中的新闻自动置顶⭐（与关注清单对齐，定期由 Kimi 随调仓更新本行即可）
+function renderSignals(){
+  // 板块联动合并：同板块同日>=3只齐发同类信号时合并为一条（防同源信号刷屏）
+  (function(){
+    const keep = [], buckets = {};
+    SIGS.forEach(function(s){
+      const m = s.text.match(/(大涨|大跌|MACD金叉|MACD死叉|RSI14=)/);
+      if(m && s.code && s.code !== ""){
+        const key = sectorOf(s.code) + "|" + m[1];
+        (buckets[key] = buckets[key] || []).push(s);
+      } else keep.push(s);
+    });
+    Object.keys(buckets).forEach(function(k){
+      const b = buckets[k];
+      if(b.length >= 3){
+        const sev = b[0].sev === "crit" ? "warn" : b[0].sev;
+        const names = b.map(function(x){ return x.stk; }).join("/");
+        keep.push({sev: sev, stk: k.split("|")[0], code: "",
+          text: "板块联动：(" + names + ") 共" + b.length + "只齐发同类信号——同源驱动，一荣俱荣一损俱损，勿按个股信号分别行动",
+          rank: b[0].rank});
+      } else { keep.push.apply(keep, b); }
+    });
+    SIGS = keep;
+  })();
+  SIGS.sort(function(a, b){ return a.rank - b.rank; });
+  const box = document.getElementById("signals");
+  box.innerHTML = "";
+  if(!SIGS.length){
+    const div = document.createElement("div");
+    div.className = "ok";
+    div.textContent = "✅ 无信号，一切安静。";
+    box.appendChild(div);
+    return;
+  }
+  SIGS.forEach(function(s, i){
+    const div = document.createElement("div");
+    div.className = "sig " + s.sev;
+    div.innerHTML = '<span style="color:#98989d;font-size:12px">' + (i + 1) + '.</span> <span class="stk">' + s.stk + '</span>' + s.text;
+    box.appendChild(div);
+  });
+}
+
+function renderScan(){
+  // v5.6：扫描变化日志已隐藏（不再刷屏）；信号自评仍在后台运行，仅在此输出一行统计
+  const el = document.getElementById("sigmeta");
+  if(el && SCAN_META && SCAN_META.stats){
+    el.textContent = el.textContent.replace(/｜近\d+个信号：.*$/, "") + SCAN_META.stats;
+  }
+}
+
+function diffScan(rows){
+  const now = new Date();
+  const DAY = 86400000;
+  let prev = {}; try{ prev = JSON.parse(localStorage.getItem("qscan_state_v5") || "{}"); }catch(e){}
+  let entries = []; try{ entries = JSON.parse(localStorage.getItem("qscan_entries") || "[]"); }catch(e){}
+  const cur = {}; const byCode = {}; const watch = [];
+  rows.forEach(function(r){ if(r.K) byCode[r.code] = r; });
+  rows.forEach(function(r){
+    if(!r.K) return;
+    cur[r.code] = {t: r.total, v: r.rev, b: r.bonus > 0 ? 1 : 0};
+    const p = prev[r.code];
+    if(!p) return;
+    if((r.total !== null && r.total >= 80 && (p.t === null || p.t === undefined || p.t < 80)) ||
+       (r.rev === 3 && p.v !== 3) ||
+       (r.bonus > 0 && !p.b)) watch.push(r);
+  });
+  entries.forEach(function(e){
+    if(e.done) return;
+    if(now.getTime() - e.ts >= 5 * DAY){
+      const r = byCode[e.code];
+      if(!r) return;
+      e.done = true; e.res = (r.price - e.price) / e.price * 100;
+    }
+  });
+  watch.forEach(function(r){ if(!r.veto) entries.unshift({code: r.code, name: r.name, price: r.price, ts: now.getTime(), done: false}); });
+  entries = entries.slice(0, 60);
+  try{ localStorage.setItem("qscan_state_v5", JSON.stringify(cur)); }catch(e){}
+  try{ localStorage.setItem("qscan_entries", JSON.stringify(entries)); }catch(e){}
+  const done = entries.filter(function(e){ return e.done && e.res !== undefined; }).slice(0, 20);
+  let stats = "";
+  if(done.length >= 5){
+    const wins = done.filter(function(e){ return e.res > 0; }).length;
+    const avg = done.reduce(function(a, e){ return a + e.res; }, 0) / done.length;
+    stats = "｜近" + done.length + "个信号：胜率" + Math.round(wins / done.length * 100) + "% 平均" + (avg > 0 ? "+" : "") + avg.toFixed(1) + "%（样本≥5才显示，用于校准权重）";
+  }
+  return {stats: stats};
+}
+
+// ---------- 事件层（v6.4三层兜底：直连尝试+news.json+手动粘贴） ----------
+function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+function dstr(d){ return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
 const EV_WATCH = /特斯拉|Tesla|SpaceX|英伟达|Nvidia|NVDA|Meta|谷歌|Google|Alphabet|苹果|\bApple\b|美光|Micron|海力士|Hynix|三星|Samsung|台积电|TSMC|中芯|兆易|澜起|存储|DRAM|NAND|闪存|半导体|芯片|宁德|亿纬|电池|锂电|稀土|黄金|比特币/i;
 const EV_HOT = /美联储|FOMC|CPI|非农|GDP|利率决议|央行|加息|降息|PMI|零售销售|原油库存|EIA|OPEC|关税|制裁|地缘|财报|停牌|退市|违约|破产|降准|冲突/i;
 const EV_FED = /FOMC|利率决议|美联储主席/;
@@ -747,6 +744,7 @@ function parseEM(j){
     return {time: String(t).slice(5, 16), text: txt, url: x.url, source: "东财快讯", imp: 1};
   }).filter(function(x){ return x.text; });
 }
+
 function parseJIN10(j){
   const l = Array.isArray(j) ? j : (j && j.data);
   if(!Array.isArray(l) || !l.length) return null;
@@ -759,14 +757,6 @@ function parseJIN10(j){
   }).filter(function(x){ return x.text; });
 }
 
-const EV_SOURCES = [
-  // v6.3：只保留两个权威直连源（聚合源/代理/财联社均已删除）
-  {name:"东财快讯", to:4000, make:function(){ return "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30"; }, parse:parseEM},
-  {name:"金十日历", to:4000, make:function(){ return "https://cdn-rili.jin10.com/data/" + dstr(new Date()) + "/economics.json"; }, parse:parseJIN10},
-  // v6.4：加本地news.json钩子（与网页同目录，同域永不拦；未来可用GitHub Actions每日生成）
-  {name:"本地news.json", to:2000, make:function(){ return "./news.json?_=" + Date.now(); }, parse:parseLOCAL}
-];
-// news.json格式：字符串数组 或 [{title,summary,time,importance}]，GitHub Actions生成时按此输出
 function parseLOCAL(j){
   const l = Array.isArray(j) ? j : (j && j.items);
   if(!Array.isArray(l) || !l.length) return null;
@@ -777,7 +767,14 @@ function parseLOCAL(j){
   }).filter(function(x){ return x.text; });
 }
 
-// v6.3：两源并行抢答（先到先用，最坏等待4s）；全部失败才显示降级提示
+const EV_SOURCES = [
+  // v6.3：只保留两个权威直连源（聚合源/代理/财联社均已删除）
+  {name:"东财快讯", to:4000, make:function(){ return "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30"; }, parse:parseEM},
+  {name:"金十日历", to:4000, make:function(){ return "https://cdn-rili.jin10.com/data/" + dstr(new Date()) + "/economics.json"; }, parse:parseJIN10},
+  // v6.4：加本地news.json钩子（与网页同目录，同域永不拦；未来可用GitHub Actions每日生成）
+  {name:"本地news.json", to:2000, make:function(){ return "./news.json?_=" + Date.now(); }, parse:parseLOCAL}
+];
+
 function loadEventSrc(){
   const groups = [EV_SOURCES];
   let g = 0;
@@ -797,6 +794,7 @@ function loadEventSrc(){
   }
   tryGroup();
 }
+
 function digestEvents(){
   EV_FEED.alerts = []; EV_FEED.macro = false;
   EV_FEED.items.forEach(function(x){ if(EV_FED.test(x.text)) EV_FEED.macro = true; });
@@ -805,7 +803,7 @@ function digestEvents(){
   if(EV_FEED.macro) EV_FEED.alerts.push({lvl:"warn", title:"利率事件", text:"信息流含央行议息/利率类事件：利率敏感窗口，新开仓建议仓位减半（自动检测）"});
   if(EV_FEED.items.some(function(x){ return EV_RISK.test(x.text); })) EV_FEED.alerts.push({lvl:"red", title:"风险快讯", text:"信息流检测到违约/破产/退市/冲突类关键词：留意持仓相关风险（自动检测，细节以金十App/晨报为准）"});
 }
-// v6.4：手动粘贴兜底——把粘贴的快讯文本解析进事件流，走同一套关键词引擎（⭐置顶/🔴预警/宏观检测）
+
 function parsePasted(){
   const ta = document.getElementById("evpaste_ta");
   const st = document.getElementById("evpaste_st");
@@ -819,6 +817,7 @@ function parsePasted(){
   digestEvents(); renderEvents(items);
   if(st) st.textContent = "已解析 " + items.length + " 条";
 }
+
 function renderEvents(items){
   const box = document.getElementById("evsrc");
   if(!box) return;
@@ -844,118 +843,32 @@ function renderEvents(items){
              (x.sub ? '<div style="font-size:12px;color:#98989d;margin-top:2px">' + escapeHtml(x.sub) + '</div>' : '') + '</div>';
     }).join("");
 }
-function loadQuotes(){
-  LIST.forEach(function(s){ delete window["v_" + s[0]]; });
-  const st = document.getElementById("status");
-  // v6.5：腾讯行情改fetch+GBK解码（借鉴测试版：qt.gtimg.cn对跨域fetch放行，无需script标签，无onload竞态、可真超时取消）
-  let dec = null;
-  try{ dec = new TextDecoder("gbk"); }catch(e){ dec = new TextDecoder(); }   // 旧浏览器无gbk标签时退utf-8：仅名称乱码，数字不受影响
-  let switched = false;
-  function toEastmoney(why){
-    if(switched) return; switched = true;
-    if(st) st.textContent = "腾讯行情" + why + "，切换东财备用源…";
-    loadQuotesEM().then(function(){ render(); })
-      .catch(function(){ if(st) st.textContent = "行情双源均失败：检查网络后点刷新（东财源错误：" + (window.__emErr || "?") + "）"; });
-  }
-  const batches = [];
-  for(let i = 0; i < LIST.length; i += 40) batches.push(LIST.slice(i, i + 40).map(function(s){ return s[0]; }));
-  let chain = Promise.resolve();
-  batches.forEach(function(cs){
-    chain = chain.then(function(){
-      return fetchTO("https://qt.gtimg.cn/q=" + cs.join(",") + "&_=" + Date.now(), 8000)
-        .then(function(r){ return r.arrayBuffer(); })
-        .then(function(b){
-          const txt = dec.decode(b);
-          const re = /v_([a-z]{2}[0-9A-Za-z.]+)="([^"]*)"/g; let m;
-          while((m = re.exec(txt))){
-            const f = m[2].split("~");
-            const a = [];
-            for(let k = 0; k < 50; k++) a[k] = (f[k] === undefined) ? "" : f[k];
-            window["v_" + m[1]] = a.join("~");
-          }
-        });
-    }).then(function(){ return new Promise(function(r){ setTimeout(r, 100); }); });
-  });
-  chain.then(function(){ if(!switched) render(); }).catch(function(){ toEastmoney("连接失败"); });
-  setTimeout(function(){
-    if(!switched && !window["v_" + LIST[0][0]]) toEastmoney("无响应");
-  }, 12000);
-}
-// v6.2 东财行情备用源：一次性拉全部标的，组装成腾讯同格式，渲染层零改动
-function loadQuotesEM(){
-  const secids = LIST.map(function(s){ return secidOf(s[0]); }).filter(Boolean);
-  const url = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f2,f3,f8,f10,f12,f14,f15,f16,f17&secids=" + secids.join(",") + "&_=" + Date.now();
-  return fetchTO(url, 9000).then(function(r){ return r.json(); }).then(function(j){
-    let diff = j && j.data && j.data.diff;
-    if(!diff) throw 0;
-    if(Array.isArray(diff)){
-      const m = {};
-      diff.forEach(function(d){ m[String(d.f12)] = d; });
-      diff = m;   // 数组形态转按代码索引
-    }
-    LIST.forEach(function(s){
-      const sid = secidOf(s[0]);
-      let d = diff[sid];
-      if(!d && s[0].indexOf("us") === 0) d = diff[s[0].slice(2)];
-      if(!d){ window.__emErr = s[0]; return; }
-      const a = [];
-      a[1] = d.f14; a[2] = d.f12; a[3] = d.f2;
-      a[4] = (d.f2 && d.f3 !== undefined && d.f3 !== null) ? +(d.f2 / (1 + d.f3 / 100)).toFixed(4) : 0;
-      a[5] = d.f17;
-      a[32] = d.f3; a[33] = d.f15; a[34] = d.f16; a[38] = d.f8; a[49] = d.f10;
-      window["v_" + s[0]] = a.join("~");
-    });
-  }).catch(function(e){ window.__emErr = String(e && e.message || e); throw e; });
-}
-let cyc = 0;
+
+// ===== 主循环（倒计时刷新，借鉴测试版；切后台暂停） =====
+let cyc = 0, cd = 60;
 function loadAll(force){
   cyc++;
-  loadQuotes();
-  if(force || cyc % 6 === 1){ loadEventSrc(); }   // v6.3：事件源盘中每6分钟自动刷新（原仅手动刷新，盘中会过期）
-  if(force || cyc % 5 === 1){ loadKlines(); }
+  loadQuotes().then(function(){ render(); })
+    .catch(function(){ const st = document.getElementById("status"); if(st) st.textContent = "行情加载失败：检查网络后点刷新"; });
+  if(force || cyc % 5 === 1){ loadKlines(force).then(function(){ doDiff = true; render(); }); }
+  if(force || cyc % 6 === 1){ loadEventSrc(); }
 }
-loadAll(true);
-let kdBusy = false;
-function loadKlines(){
-  if(kdBusy) return;   // v6.3：防重入，避免手动刷新叠加全量拉取
-  kdBusy = true;
-  window.__kcHit = 0;
-  kdReady = false;
-  setTimeout(function(){ if(!kdReady){ kdReady = true; render(); } }, 15000);
-  // v6.3：持仓+指数优先（首屏关键数据先到位先渲染），其余自选后台补齐——首开不再被83只全量拖死
-  const pri = [], rest = [];
-  KSET.forEach(function(i){
-    const c = LIST[i][0];
-    if(isHold(c) || c === "sh000001" || c === "sz399006" || c === "usIXIC") pri.push(c); else rest.push(c);
-  });
-  const jobs = pri.concat(rest);
-  let done = 0, firstPaint = false;
-  let p = Promise.resolve();
-  for(let i = 0; i < jobs.length; i += 10){
-    const batch = jobs.slice(i, i + 10);
-    p = p.then(function(){ return Promise.all(batch.map(loadKline)).then(function(){
-      done += batch.length;
-      const st = document.getElementById("status");
-      if(st) st.textContent = "行情已加载，指标加载中 " + done + "/" + jobs.length + "…";
-      if(!firstPaint && done >= pri.length){ firstPaint = true; kdReady = true; render(); }
-    }); });
-  }
-  p.then(function(){ kdBusy = false; kdReady = true; doDiff = true; render(); });
-  p.catch(function(){ kdBusy = false; });
+function tickClock(){
+  const el = document.getElementById("clock");
+  if(el) el.textContent = new Date().toLocaleTimeString("zh-CN") + (auto ? " · " + cd + "s后刷新" : "");
+  if(auto && --cd <= 0){ cd = 60; loadAll(false); }
 }
 function toggleAuto(){
   auto = !auto;
   document.getElementById("autoBtn").textContent = "自动刷新：" + (auto ? "开（60秒）" : "关");
-  clearInterval(timer);
-  if(auto){ timer = setInterval(loadAll, 60000); }
 }
-timer = setInterval(function(){ if(auto) loadAll(); }, 60000);
-// v6.3：切后台暂停轮询（省流量省电），回前台立即全量刷新
 document.addEventListener("visibilitychange", function(){
   if(document.hidden){ clearInterval(timer); timer = null; }
-  else if(auto && !timer){ try{ const _p = sessionStorage.getItem("q_ev_paste"); if(_p){ const _t = document.getElementById("evpaste_ta"); if(_t) _t.value = _p; } }catch(e){}
-loadAll(true); timer = setInterval(function(){ if(auto) loadAll(); }, 60000); }
+  else if(auto && !timer){ cd = 60; loadAll(true); timer = setInterval(tickClock, 1000); }
 });
+try{ const _p = sessionStorage.getItem("q_ev_paste"); if(_p){ const _t = document.getElementById("evpaste_ta"); if(_t) _t.value = _p; } }catch(e){}
+loadAll(true);
+timer = setInterval(tickClock, 1000);
 </script>
 </body>
 </html>
