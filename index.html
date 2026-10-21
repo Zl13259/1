@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>行情简报</title>
+<style>
+  body{font-family:-apple-system,"PingFang SC",sans-serif;margin:0;padding:12px;background:#0d1117;color:#e6edf3;font-size:15px}
+  h1{font-size:17px;margin:4px 0 10px}
+  .bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  button{background:#1f6feb;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:15px}
+  button.sec{background:#21262d;border:1px solid #30363d}
+  #status{color:#8b949e;font-size:13px;margin:6px 0}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  th,td{padding:7px 6px;border-bottom:1px solid #21262d;text-align:right;white-space:nowrap}
+  th{color:#8b949e;font-weight:normal;font-size:12px}
+  td.l,th.l{text-align:left}
+  .up{color:#f85149}.dn{color:#3fb950}
+  .alert{background:rgba(248,81,73,.12)}
+  #brief{margin-top:12px;padding:10px;background:#161b22;border-radius:8px;font-size:13px;word-break:break-all;color:#c9d1d9}
+  .note{color:#8b949e;font-size:12px;margin-top:8px;line-height:1.6}
+</style>
+</head>
+<body>
+<h1>📈 行情简报 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
+<div class="bar">
+  <button onclick="refresh()">刷新</button>
+  <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
+  <button class="sec" onclick="copyBrief()">复制简报</button>
+</div>
+<div id="costSetup" style="display:none;background:#161b22;border-radius:8px;padding:12px;margin-bottom:10px">
+  <div style="margin-bottom:6px">首次使用：输入 6 只持仓的成本价（仅保存在本机，不上传）：</div>
+  <div style="color:#8b949e;font-size:12px;margin-bottom:6px">顺序：瑞芯微, 亿纬, 300ETF, NVDA, DRAM, INTC —— 用逗号分隔</div>
+  <input id="costInput" type="text" placeholder="六个数字用逗号分隔，如：10.5, 20, 4.5, 100, 55, 88" style="width:100%;box-sizing:border-box;padding:9px;border-radius:8px;border:1px solid #30363d;background:#0d1117;color:#e6edf3;font-size:14px">
+  <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+    <button onclick="initCosts()">保存并开始</button>
+    <span id="costMsg" style="color:#f85149;font-size:13px"></span>
+  </div>
+</div>
+<div id="status">加载中…</div>
+<table id="tbl">
+  <thead><tr>
+    <th class="l">名称</th><th>现价</th><th>涨幅%</th><th>距成本%</th><th>高/低</th><th>换手%</th><th>量比</th>
+  </tr></thead>
+  <tbody></tbody>
+</table>
+<div id="brief"></div>
+<div class="note">
+  量比仅A股有效（美股/指数该字段无效，忽略）；A股交易时段 09:30-15:00，美股 21:30-04:00（夏令），非交易时段显示上一收盘。<br>
+  观察股/指数的"距成本"以设置日收盘价为基准，仅持仓股有参考意义。
+</div>
+<script>
+// [腾讯代码, 显示名] —— 前6只为持仓（成本本机输入，永不上传）；TXN/LRCX=存储链温度计 2026-10-21 新增
+const LIST = [
+  ["sh603893","瑞芯微"],["sz300014","亿纬"],["sh510300","300ETF"],
+  ["usNVDA","NVDA"],["usDRAM","DRAM"],["usINTC","INTC"],
+  ["usMETA","Meta"],["usGOOGL","谷歌"],["usTSLA","特斯拉"],
+  ["usKLAC","科磊"],["usSOXS","SOXS"],["usMU","美光"],
+  ["sh000001","上证"],["sz399006","创业板"],["sh512480","半导体"],
+  ["usIXIC","纳指"],["usINX","标普"],["usDJI","道指"],["usTXN","德州仪器"],["usLRCX","泛林"]
+];
+const HOLD = 6; // 前6只为持仓
+let auto = true, timer = null;
+// 成本只存本机 localStorage，公开仓库的文件不含任何个人数字
+let COSTS = null;
+try { COSTS = JSON.parse(localStorage.getItem("costs") || "null"); } catch(e) { COSTS = null; }
+function initCosts(){
+  if(COSTS) return true;
+  const t = document.getElementById("costInput").value.split(/[,，\s]+/).filter(Boolean);
+  if(t.length !== HOLD){ document.getElementById("costMsg").textContent = "需要正好 " + HOLD + " 个数字，用逗号分隔"; return false; }
+  const nums = t.map(Number);
+  if(nums.some(isNaN)){ document.getElementById("costMsg").textContent = "有不是数字的内容，检查后重试"; return false; }
+  COSTS = nums;
+  localStorage.setItem("costs", JSON.stringify(nums));
+  document.getElementById("costSetup").style.display = "none";
+  load();
+  return true;
+}
+
+function fmt(n, d){ return (+n).toFixed(d === undefined ? 2 : d); }
+
+function render(){
+  const tb = document.querySelector("#tbl tbody");
+  tb.innerHTML = "";
+  let brief = "";
+  let ok = 0, fail = 0;
+  LIST.forEach(function(s, i){
+    const raw = window["v_" + s[0]];
+    if(!raw){ fail++; return; }
+    ok++;
+    const f = raw.split("~");
+    const price = +f[3], pct = +f[32], high = +f[33], low = +f[34];
+    const turnover = f[38] === "" ? null : +f[38];
+    const volratio = (+f[49] > 0 && +f[49] < 50) ? +f[49] : null; // 过滤美股52周低等无效值
+    const dcost = COSTS ? (price - COSTS[i]) / COSTS[i] * 100 : null;
+    const cls = pct > 0 ? "up" : pct < 0 ? "dn" : "";
+    const isHold = i < HOLD;
+    const alertCls = (isHold && dcost !== null && dcost <= -15) ? "alert" : "";
+    const tr = document.createElement("tr");
+    if(alertCls) tr.className = alertCls;
+    tr.innerHTML =
+      '<td class="l">' + s[1] + (isHold ? "" : ' <span style="color:#8b949e;font-size:11px">观</span>') + '</td>' +
+      '<td>' + fmt(price) + '</td>' +
+      '<td class="' + cls + '">' + (pct > 0 ? "+" : "") + fmt(pct) + '</td>' +
+      '<td class="' + (dcost !== null && dcost > 0 ? "up" : "dn") + '">' + (isHold && dcost !== null ? ((dcost > 0 ? "+" : "") + fmt(dcost,1)) : "—") + '</td>' +
+      '<td>' + fmt(high) + '/' + fmt(low) + '</td>' +
+      '<td>' + (turnover === null ? "—" : fmt(turnover,2)) + '</td>' +
+      '<td>' + (volratio === null ? "—" : fmt(volratio,2)) + '</td>';
+    tb.appendChild(tr);
+    // 简报行（与iPhone快捷指令格式一致）
+    brief += s[1] + " " + fmt(price) + "(" + (pct > 0 ? "+" : "") + fmt(pct) + "%)" +
+             (isHold && dcost !== null ? " 距" + (dcost > 0 ? "+" : "") + fmt(dcost,1) + "%" : "") + "｜";
+  });
+  document.getElementById("brief").textContent = brief;
+  const now = new Date();
+  document.getElementById("clock").textContent = now.toLocaleTimeString("zh-CN");
+  document.getElementById("status").textContent = "已更新 " + now.toLocaleTimeString("zh-CN") + "（成功 " + ok + "，失败 " + fail + "）";
+}
+
+function load(){
+  document.getElementById("status").textContent = "加载中…";
+  const old = document.getElementById("qs");
+  if(old) old.remove();
+  LIST.forEach(function(s){ delete window["v_" + s[0]]; });
+  const sc = document.createElement("script");
+  sc.id = "qs";
+  sc.charset = "gbk";
+  sc.src = "https://qt.gtimg.cn/q=" + LIST.map(function(s){return s[0];}).join(",");
+  sc.onload = render;
+  sc.onerror = function(){ document.getElementById("status").textContent = "网络错误，稍后重试"; };
+  document.body.appendChild(sc);
+}
+function refresh(){ load(); }
+function toggleAuto(){
+  auto = !auto;
+  document.getElementById("autoBtn").textContent = "自动刷新：" + (auto ? "开（60秒）" : "关");
+  if(auto){ timer = setInterval(load, 60000); } else { clearInterval(timer); }
+}
+function copyBrief(){
+  const t = document.getElementById("brief").textContent;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(function(){ document.getElementById("status").textContent = "简报已复制，可直接粘贴给 Kimi"; });
+  } else {
+    const ta = document.createElement("textarea");
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+    document.getElementById("status").textContent = "简报已复制";
+  }
+}
+if(COSTS){ load(); } else { document.getElementById("costSetup").style.display = "block"; document.getElementById("status").textContent = "等待设置成本（仅本机保存）"; }
+timer = setInterval(function(){ if(auto && COSTS) load(); }, 60000);
+</script>
+</body>
+</html>
