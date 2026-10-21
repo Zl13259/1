@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v6.4</title>
+<title>信号监控 v6.5</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v6.4</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v6.5</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -88,6 +88,7 @@
   <b>支撑/压力</b>=MA5/10/20/60、20/60日高低点、布林轨多指标共振加权（重合度越高权重越大）。<b>建议买入区</b>=强支撑±0.5×ATR（回踩参考）；<b>建议卖出区</b>=压力带内；<b>止损参考</b>=强支撑下方1×ATR。<br>
   <b>RS评级</b>：20日涨幅在本次扫描全部标的内的百分位（0-99，池内相对强度）；<b>M模板</b>：Minervini趋势模板六条件通过数——现价>MA150、现价>MA200、MA50>MA150、MA200上行、距52周高点≤25%、现价>MA50；≥5强势趋势/4及格/≤3警惕（长期数据不足的标的自动不显示）。<b>🌡️池内宽度</b>：页顶显示池内涨跌家数与20日新高/新低，辅助判断情绪极值。<br>
   <b>💸成本磨损</b>：A股短线往返成本约0.15%（佣金+印花税+滑点），网格/价差类策略利润空间须先覆盖成本；信号结算以触发时价为准，勿用盘中极值估价。<br>
+  v6.5：行情/K线源切换——借鉴测试版实证：腾讯行情改fetch+GBK解码（qt.gtimg.cn跨域放行）、腾讯ifzq kline升主源（web.ifzq.gtimg.cn跨域放行，美股.OQ后缀）、东财全线降为备用；40只/批限速。<br>
   v6.4：事件层重写——双直连源+本地news.json自动化钩子+📥手动粘贴兜底区（CORS拦截时复制金十App快讯粘贴即可）；能打开网站≠网页能抓取（跨域安全策略）。<br>
   📅重要事件区：东财快讯+金十日历双权威源并行抓取；🔴重要新闻与⭐自选相关词自动置顶，风险类关键词自动生成红色预警；盘中异动（涨跌±5%、振幅>8%、量比>3）由页面自动检测；同板块≥3只齐发同类信号自动合并为板块联动一条。本页为技术面参考，不构成交易建议；成本与纪律分析见晨报/晚报。
 </div>
@@ -340,11 +341,6 @@ function emBars(j){
   const arr = (j && j.data && j.data.klines) || [];
   return arr.map(function(x){ const p = x.split(","); return [ +p[1], +p[2], +p[3], +p[4], +p[5] ]; });
 }
-function txBars(code, j){
-  const d = j && j.data && j.data[code];
-  const arr = (d && (d.qfqday || d.day)) || [];
-  return arr.map(function(x){ return [ +x[1], +x[2], +x[3], +x[4], +x[5] ]; });
-}
 function setKraw(code, bars){
   setK(code, bars.map(function(b){return b[0];}), bars.map(function(b){return b[3];}), bars.map(function(b){return b[1];}), bars.map(function(b){return b[2];}), bars.map(function(b){return b[4];}));
 }
@@ -367,8 +363,6 @@ function applyBars(code, bars){
   patchLive(code);
 }
 function loadKline(code){
-  const sid = secidOf(code);
-  if(!sid){ window["k_" + code] = null; return Promise.resolve(); }
   const today = dstr(new Date());
   const c = kcRead(code);
   if(c && (c.date === today || c.date === ystr())){
@@ -376,19 +370,36 @@ function loadKline(code){
     window.__kcHit = (window.__kcHit || 0) + 1;
     return Promise.resolve();
   }
-  return fetchTO("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + sid + "&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&klt=101&fqt=1&lmt=320&end=20500101&_=" + Date.now(), 9000)
+  // v6.5：腾讯ifzq kline升为主源（测试版实证web.ifzq.gtimg.cn对跨域fetch放行）；美股.OQ后缀优先、原生代码兜底；东财降为备用
+  const tq = code.indexOf("us") === 0 ? code + ".OQ" : code;
+  return fetchTO("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now(), 9000)
     .then(function(r){ return r.json(); })
     .then(function(j){
-      const bars = emBars(j);
+      const d = (j && j.data && (j.data[tq] || j.data[code])) || {};
+      const arr = d.qfqday || d.day || [];
+      let bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
+      if(!bars.length && code !== tq){
+        return fetchTO("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + code + ",day,,,320,qfq&_=" + Date.now(), 9000)
+          .then(function(r2){ return r2.json(); })
+          .then(function(j2){
+            const d2 = (j2 && j2.data && (j2.data[code] || j2.data[tq])) || {};
+            const arr2 = d2.qfqday || d2.day || [];
+            bars = arr2.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
+            if(!bars.length) throw 0;
+            kcWrite(code, today, bars); applyBars(code, bars);
+          });
+      }
       if(!bars.length) throw 0;
       kcWrite(code, today, bars);
       applyBars(code, bars);
     })
     .catch(function(){
-      return fetchTO("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + code + ",day,,,320,qfq&_=" + Date.now(), 9000)
+      const sid = secidOf(code);
+      if(!sid){ window["k_" + code] = null; return; }
+      return fetchTO("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + sid + "&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&klt=101&fqt=1&lmt=320&end=20500101&_=" + Date.now(), 9000)
         .then(function(r){ return r.json(); })
         .then(function(j){
-          const bars = txBars(code, j);
+          const bars = emBars(j);
           if(!bars.length) throw 0;
           kcWrite(code, today, bars);
           applyBars(code, bars);
@@ -396,7 +407,6 @@ function loadKline(code){
         .catch(function(){ if(!kcRead(code)) window["k_" + code] = null; });
     });
 }
-
 let SIGS = [];
 // v5.7：事件层=多源自动抓取；一票否决=页面自动规则（放量破20日低点+大盘豁免）；主观判断在晨报·晚报。
 let EV_FEED = {items: [], src: null, at: null, alerts: [], macro: false};
@@ -835,10 +845,11 @@ function renderEvents(items){
     }).join("");
 }
 function loadQuotes(){
-  const old = document.getElementById("qs");
-  if(old) old.remove();
   LIST.forEach(function(s){ delete window["v_" + s[0]]; });
   const st = document.getElementById("status");
+  // v6.5：腾讯行情改fetch+GBK解码（借鉴测试版：qt.gtimg.cn对跨域fetch放行，无需script标签，无onload竞态、可真超时取消）
+  let dec = null;
+  try{ dec = new TextDecoder("gbk"); }catch(e){ dec = new TextDecoder(); }   // 旧浏览器无gbk标签时退utf-8：仅名称乱码，数字不受影响
   let switched = false;
   function toEastmoney(why){
     if(switched) return; switched = true;
@@ -846,17 +857,29 @@ function loadQuotes(){
     loadQuotesEM().then(function(){ render(); })
       .catch(function(){ if(st) st.textContent = "行情双源均失败：检查网络后点刷新（东财源错误：" + (window.__emErr || "?") + "）"; });
   }
-  const sc = document.createElement("script");
-  sc.id = "qs";
-  sc.charset = "gbk";
-  sc.src = "https://qt.gtimg.cn/q=" + LIST.map(function(s){return s[0];}).join(",") + "&_=" + Date.now();
-  sc.onload = render;
-  sc.onerror = function(){ toEastmoney("连接失败"); };
-  document.body.appendChild(sc);
-  // 腾讯源挂起无响应时的兜底：10秒无数据自动切东财
+  const batches = [];
+  for(let i = 0; i < LIST.length; i += 40) batches.push(LIST.slice(i, i + 40).map(function(s){ return s[0]; }));
+  let chain = Promise.resolve();
+  batches.forEach(function(cs){
+    chain = chain.then(function(){
+      return fetchTO("https://qt.gtimg.cn/q=" + cs.join(",") + "&_=" + Date.now(), 8000)
+        .then(function(r){ return r.arrayBuffer(); })
+        .then(function(b){
+          const txt = dec.decode(b);
+          const re = /v_([a-z]{2}[0-9A-Za-z.]+)="([^"]*)"/g; let m;
+          while((m = re.exec(txt))){
+            const f = m[2].split("~");
+            const a = [];
+            for(let k = 0; k < 50; k++) a[k] = (f[k] === undefined) ? "" : f[k];
+            window["v_" + m[1]] = a.join("~");
+          }
+        });
+    }).then(function(){ return new Promise(function(r){ setTimeout(r, 100); }); });
+  });
+  chain.then(function(){ if(!switched) render(); }).catch(function(){ toEastmoney("连接失败"); });
   setTimeout(function(){
     if(!switched && !window["v_" + LIST[0][0]]) toEastmoney("无响应");
-  }, 10000);
+  }, 12000);
 }
 // v6.2 东财行情备用源：一次性拉全部标的，组装成腾讯同格式，渲染层零改动
 function loadQuotesEM(){
