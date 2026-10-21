@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>量化信号监控 v5.3</title>
+<title>量化信号监控 v5.5</title>
 <style>
   body{font-family:-apple-system,"PingFang SC",sans-serif;margin:0;padding:12px;background:#0d1117;color:#e6edf3;font-size:15px}
   .nav{margin:0 0 10px;font-size:14px}
@@ -52,7 +52,7 @@
   <span style="color:#8b949e"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>🤖 量化信号监控 v5.3 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
+<h1>🤖 量化信号监控 v5.5 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -60,7 +60,7 @@
 </div>
 <div id="status">加载中…</div>
 <div id="breadth" style="font-size:12px;color:#8b949e;margin:2px 0 8px"></div>
-<h2>📅 重要事件（每日06:00自动更新·多源级联·仅展示不入评分）</h2>
+<h2>📅 重要事件（金十/财联社/东财权威源·级联兜底·仅展示不入评分）</h2>
 <div id="evsrc" style="font-size:13px;color:#8b949e;margin:2px 0 4px">加载中…</div>
 <h2>📋 预警与信号（操作优先级最高）</h2>
 <div id="sigmeta" style="font-size:12px;color:#8b949e;margin:2px 0 8px"></div>
@@ -68,7 +68,7 @@
 <h2>📡 扫描与状态变化（每5分钟全量扫描全部标的，本机留存·跨天可对比·信号自动自评）</h2>
 <div id="scaninfo" style="font-size:12px;color:#8b949e;margin:4px 0 6px"></div>
 <div id="changes"></div>
-<h2>🎯 机会与持仓 · ≥80入选｜未达80显示前3名最高分候选（只观察不动作）｜🚫=一票否决</h2>
+<h2>🎯 机会与持仓 · ≥80重点关注｜70-79 ◎观察级｜另附前5名外候选（只观察不动作）｜🚫=一票否决</h2>
 <div id="cards"></div>
 <table id="tbl">
   <thead><tr>
@@ -81,13 +81,13 @@
   <b>分级</b>：≥90 🔥交易候选｜80-89 ⭐重点关注（自动入选上方分析区）｜60-79 观察｜<60 弱势。每5分钟重算，动态进出。<br>
   <b>板块分类计权</b>：成长/科技=动量权重（位置越高越强）；价值/红利=慢趋势+回踩支撑权重（银行/电力类暴量反而是异常）；周期资源=位置权重（20日低位才是低吸区，高位是高抛区）。8只板块龙头（茅台/美的/平安/海油/神华/迈瑞/东财/比亚迪）只当"温"度计，不入机会池——用于看风格切换，不用于发买入信号。<br>
   <b>金叉降权</b>：10日内第2次及以上金叉/死叉自动标注降权——震荡市反复交叉是典型噪音源，信号频率比信号方向更骗人。<br>
-  <b>🚫一票否决</b>：仅保留页面自动规则——放量破20日低点自动否决。财报窗口/利空发酵等主观判断由 Kimi 在晨报/晚报给出，不进本页。否决生效期总分压至59以下、⭐🔵🚀买入信号全部冻结，持仓的卖出/止损纪律不受影响。<br>
+  <b>🚫一票否决</b>：仅保留页面自动规则——放量破20日低点自动否决；但<b>大盘同跌≤-2%时豁免</b>（系统性下跌中个股破位无区分度，防错杀；大盘平静期的个股性崩塌仍正常否决）。财报窗口/利空发酵等主观判断由 Kimi 在晨报/晚报给出，不进本页。否决生效期总分压至59以下、⭐🔵🚀买入信号全部冻结，持仓的卖出/止损纪律不受影响。<br>
   <b>历史六阶段</b>：深跌·底部区→筑底企稳→反转确认初期→主升段→高位滞涨→下跌通道，与综合分并列显示（分高但阶段=高位滞涨 ≠ 分高阶段=主升段）；放量创20日新高+5分突破加成。<br>
   <b>🔵超跌反转通道</b>（独立于动量评分的左侧体系）：阶段①超跌(RSI≤30或破布林下轨2σ)→阶段②企稳(缩量收阳/长下影，+12分)→阶段③触发(站上MA5/金叉/放量阳线，+20分)。抄底≠摸底，触发前严禁动手。<br>
   <b>支撑/压力</b>=MA5/10/20/60、20/60日高低点、布林轨多指标共振加权（重合度越高权重越大）。<b>建议买入区</b>=强支撑±0.5×ATR（回踩参考）；<b>建议卖出区</b>=压力带内；<b>止损参考</b>=强支撑下方1×ATR。<br>
   <b>RS评级</b>：20日涨幅在本次扫描全部标的内的百分位（0-99，池内相对强度）；<b>M模板</b>：Minervini趋势模板六条件通过数——现价>MA150、现价>MA200、MA50>MA150、MA200上行、距52周高点≤25%、现价>MA50；≥5强势趋势/4及格/≤3警惕（长期数据不足的标的自动不显示）。<b>🌡️池内宽度</b>：页顶显示池内涨跌家数与20日新高/新低，辅助判断情绪极值。<br>
   <b>💸成本磨损</b>：A股短线往返成本约0.15%（佣金+印花税+滑点），网格/价差类策略利润空间须先覆盖成本；信号结算以触发时价为准，勿用盘中极值估价。<br>
-  📅重要事件区：每日财经新闻(GitHub开源项目·每日06:00自动更新)为主源，东财快讯/金十日历级联兜底；🔴重要新闻与⭐自选相关词自动置顶，风险类关键词自动生成红色预警；盘中异动（涨跌±5%、振幅>8%、量比>3）由页面自动检测；同板块≥3只齐发同类信号自动合并为板块联动一条。本页为技术面参考，不构成交易建议；成本与纪律分析见晨报/晚报。
+  📅重要事件区：金十日历+财联社电报+东财快讯权威源级联抓取（公共代理与聚合源仅作兜底）；财联社加星标⭐新闻自动升为🔴重要级；🔴重要新闻与⭐自选相关词自动置顶，风险类关键词自动生成红色预警；盘中异动（涨跌±5%、振幅>8%、量比>3）由页面自动检测；同板块≥3只齐发同类信号自动合并为板块联动一条。本页为技术面参考，不构成交易建议；成本与纪律分析见晨报/晚报。
 </div>
 <script src="./list.js"></script>
 <script>
@@ -355,12 +355,13 @@ function renderCards(rows){
   box.innerHTML = "";
   const picked = [], near = [];
   rows.forEach(function(r){
-    const sel = !r.thermo && (isHold(r.code) || (r.total !== null && r.total >= 80) || r.rev >= 2 || (r.stage && (r.stage.id === 3 || r.stage.id === 5)));
+    const sel = !r.thermo && !r.veto && (isHold(r.code) || (r.total !== null && r.total >= 80) || r.rev >= 2 || (r.stage && (r.stage.id >= 3 && r.stage.id <= 5)));
     if(sel) picked.push(r);
-    else if(r.total !== null && !r.veto && !r.thermo) near.push(r);
+    else if(r.total !== null && r.total >= 70 && !r.veto && !r.thermo){ r.obsTier = true; picked.push(r); }
+    else if(r.total !== null && !r.thermo) near.push(r);
   });
   near.sort(function(a,b){ return b.total - a.total; });
-  near.slice(0,3).forEach(function(r){ r.nearMiss = true; picked.push(r); });
+  near.slice(0,5).forEach(function(r){ r.nearMiss = true; picked.push(r); });
   picked.sort(function(a,b){
     const ha = isHold(a.code) ? 1 : 0, hb = isHold(b.code) ? 1 : 0;
     if(ha !== hb) return ha - hb;
@@ -385,6 +386,7 @@ function renderCards(rows){
       ' <span class="badge ' + (r.grade ? r.grade[1] : K2.bc) + '">' + (r.grade ? r.grade[0] : K2.label) + '</span>' +
       (r.stage ? ' <span class="badge ' + r.stage.cls + '">' + r.stage.name + '</span>' : '') +
       (minvN !== null ? ' <span class="badge ' + (minvN >= 5 ? 'b-s2' : minvN >= 4 ? 'b-s1' : 'b-0') + '">M' + minvN + '/6</span>' : '') +
+      (r.obsTier ? ' <span class="badge b-0">◎70+观察</span>' : '') +
       (r.nearMiss ? ' <span class="badge b-0">候选·未达80</span>' : '') +
       ' <span style="font-size:12px;color:#8b949e">纯技术 <b style="color:#e6edf3">' + r.total + '</b>/100</span></span>' +
       '<span class="nums"><b>' + fmt(r.price) + '</b> <span class="' + cls + '">' + (r.pct>0?"+":"") + fmt(r.pct) + '%</span></span></div>' +
@@ -576,8 +578,7 @@ function render(){
       if(r.rev >= 2 && ((r.price > K.ma5 && K.prevClose <= K.ma5prev) || K.crossUp || (K.revYang && r.volratio > 1.5))) r.rev = 3;
     }
     r.stage = stageOf(price, K);
-    if(!r.veto && K && K.ll20 && price < K.ll20 && r.volratio !== null && r.volratio > 1.8 && r.pct < -3)
-      r.veto = {until:null, reason:"放量破20日低点：超跌形态被破坏，疑下跌中继而非底部（自动否决）"};
+    // v5.4：自动否决移至rows构建后统一判定（需先取得大盘当日跌幅）
     r.total = (r.tech === null) ? null : r.tech + r.ev + (r.rev === 2 ? 12 : r.rev === 3 ? 20 : 0);
     r.bonus = 0;
     if(r.total !== null) r.total = Math.min(100, r.total);
@@ -588,6 +589,21 @@ function render(){
     if(r.veto && r.total !== null){ r.total = Math.min(r.total, 59); }
     r.grade = r.total === null ? null : gradeOf(r.total);
     rows.push(r);
+  });
+  // v5.4 自动否决统一判定：放量破20日低点，但大盘同跌≤-2%时判定为系统性下跌、否决暂停
+  // （个股破位在系统性下跌中无区分度，防错杀；大盘平静期的个股性崩塌仍正常否决）
+  const shRow = rows.filter(function(x){ return x.code === "sh000001"; })[0];
+  const ixRow = rows.filter(function(x){ return x.code === "usIXIC"; })[0];
+  const idxPctA = shRow ? shRow.pct : 0;
+  const idxPctUS = ixRow ? ixRow.pct : 0;
+  rows.forEach(function(r){
+    if(r.veto) return;
+    const K = r.K;
+    if(K && K.ll20 && r.price < K.ll20 && r.volratio !== null && r.volratio > 1.8 && r.pct < -3){
+      const sysDown = r.isA ? idxPctA <= -2 : idxPctUS <= -2;
+      if(!sysDown) r.veto = {until:null, reason:"放量破20日低点：超跌形态被破坏，疑下跌中继而非底部（自动否决）"};
+      if(r.veto && r.total !== null) r.total = Math.min(r.total, 59);
+    }
   });
   // v5.2：RS池内评级（20日涨幅百分位）+ 池内市场宽度温度计
   const rsArr = rows.filter(function(r){ return r.K && r.K.ret20 !== null; });
@@ -657,7 +673,7 @@ function render(){
     addSig(a.lvl === "red" ? "crit" : "warn", a.title || "重大事件", a.text);
   });
   const metaEl = document.getElementById("sigmeta");
-  if(metaEl) metaEl.textContent = "事件源：每日财经新闻(GitHub·每日06:00更新)+东财快讯/金十日历级联兜底｜事件分与主观一票否决：晨报·晚报由 Kimi 给出，不进入本页评分";
+  if(metaEl) metaEl.textContent = "事件源：金十日历+财联社电报+东财快讯权威级联（代理与聚合源兜底）｜事件分与主观一票否决：晨报·晚报由 Kimi 给出，不进入本页评分";
   if(EV_FEED.macro) addSig("warn", "事件窗口", "信息流含央行议息/利率类事件：利率敏感窗口，新开仓建议仓位减半（自动检测）");
   renderSignals();
   if(doDiff){ SCAN_META = diffScan(rows); doDiff = false; }
@@ -714,15 +730,30 @@ function parseJIN10(j){
   }).filter(function(x){ return x.text; });
 }
 
+function parseCLS(j){
+  const l = j && j.data && (j.data.roll_data || j.data.telegraph_list);
+  if(!Array.isArray(l) || !l.length) return null;
+  return l.map(function(x){
+    let ts = "";
+    if(x.ctime){
+      const t = new Date(+x.ctime * 1000);
+      ts = (t.getMonth() + 1) + "-" + ("0" + t.getDate()).slice(-2) + " " + ("0" + t.getHours()).slice(-2) + ":" + ("0" + t.getMinutes()).slice(-2);
+    } else ts = String(x.showtime || x.time || "");
+    const txt = ((x.title ? x.title + "：" : "") + (x.content || x.brief || "")).replace(/\s+/g, " ").trim();
+    return {time: ts, text: txt, url: x.id ? "https://www.cls.cn/detail/" + x.id : null,
+            source: "财联社", imp: x.level === "star" ? 3 : (x.level === "focus" ? 2 : 1)};
+  }).filter(function(x){ return x.text; });
+}
 const DFN_BASE = "https://glenman.github.io/daily-finance-news/data/";
 const EV_SOURCES = [
-  {name:"每日财经新闻(GitHub·今)", make:function(){ return DFN_BASE + dstr(new Date()) + ".json"; }, parse:parseDFN},
-  {name:"每日财经新闻(jsdelivr镜像)", make:function(){ return "https://cdn.jsdelivr.net/gh/glenman/daily-finance-news@main/data/" + dstr(new Date()) + ".json"; }, parse:parseDFN},
-  {name:"每日财经新闻(最新一期)", index:true, parse:parseDFN},
-  {name:"东财快讯", make:function(){ return "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30"; }, parse:parseEM},
   {name:"金十日历", make:function(){ return "https://cdn-rili.jin10.com/data/" + dstr(new Date()) + "/economics.json"; }, parse:parseJIN10},
+  {name:"财联社电报", make:function(){ return "https://www.cls.cn/v1/roll/get_roll_list?app=CailianpressWeb&category=&lastTime=&os=web&refresh_type=1&rn=25"; }, parse:parseCLS},
+  {name:"东财快讯", make:function(){ return "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30"; }, parse:parseEM},
   {name:"金十日历·代理", make:function(){ return "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://cdn-rili.jin10.com/data/" + dstr(new Date()) + "/economics.json"); }, parse:parseJIN10},
-  {name:"东财快讯·代理", make:function(){ return "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30"); }, parse:parseEM}
+  {name:"财联社·代理", make:function(){ return "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://www.cls.cn/v1/roll/get_roll_list?app=CailianpressWeb&category=&lastTime=&os=web&refresh_type=1&rn=25"); }, parse:parseCLS},
+  {name:"东财快讯·代理", make:function(){ return "https://api.allorigins.win/raw?url=" + encodeURIComponent("https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30"); }, parse:parseEM},
+  {name:"每日财经(聚合·兜底)", make:function(){ return DFN_BASE + dstr(new Date()) + ".json"; }, parse:parseDFN},
+  {name:"每日财经(jsdelivr·兜底)", make:function(){ return "https://cdn.jsdelivr.net/gh/glenman/daily-finance-news@main/data/" + dstr(new Date()) + ".json"; }, parse:parseDFN}
 ];
 
 function loadEventSrc(){
