@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>量化信号监控 v5.5</title>
+<title>量化信号监控 v5.7</title>
 <style>
   body{font-family:-apple-system,"PingFang SC",sans-serif;margin:0;padding:12px;background:#0d1117;color:#e6edf3;font-size:15px}
   .nav{margin:0 0 10px;font-size:14px}
@@ -52,11 +52,10 @@
   <span style="color:#8b949e"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>🤖 量化信号监控 v5.5 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
+<h1>🤖 量化信号监控 v5.7 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
-  <button class="sec" onclick="clearScan()">清空记录</button>
 </div>
 <div id="status">加载中…</div>
 <div id="breadth" style="font-size:12px;color:#8b949e;margin:2px 0 8px"></div>
@@ -65,9 +64,6 @@
 <h2>📋 预警与信号（操作优先级最高）</h2>
 <div id="sigmeta" style="font-size:12px;color:#8b949e;margin:2px 0 8px"></div>
 <div id="signals"></div>
-<h2>📡 扫描与状态变化（每5分钟全量扫描全部标的，本机留存·跨天可对比·信号自动自评）</h2>
-<div id="scaninfo" style="font-size:12px;color:#8b949e;margin:4px 0 6px"></div>
-<div id="changes"></div>
 <h2>🎯 机会与持仓 · ≥80重点关注｜70-79 ◎观察级｜另附前5名外候选（只观察不动作）｜🚫=一票否决</h2>
 <div id="cards"></div>
 <table id="tbl">
@@ -111,7 +107,7 @@ const GROUPS = [
 const KSET = [];
 for(let i = 0; i < LIST.length; i++) KSET.push(i);
 let auto = true, timer = null, kdReady = false, doDiff = false, MACRO_ON = false, BENCH_RET20 = null;
-let SCAN_META = {time: null, changes: []};
+let SCAN_META = {stats: ""};
 function fmt(n, d){ if(!isFinite(n)) return "—"; return (+n).toFixed(d === undefined ? 2 : d); }
 
 // ---------- 指标计算 ----------
@@ -343,9 +339,7 @@ function loadKline(code){
 }
 
 let SIGS = [];
-// v5.1 零维护设计：无内嵌事件窗口、无内嵌否决清单、不读任何本地事件文件。
-// 事件层=下方多源自动抓取；一票否决仅保留页面自动规则（放量破20日低点）；主观判断在晨报·晚报。
-const BUILTIN_VETO = {};
+// v5.7：事件层=多源自动抓取；一票否决=页面自动规则（放量破20日低点+大盘豁免）；主观判断在晨报·晚报。
 let EV_FEED = {items: [], src: null, at: null, alerts: [], macro: false};
 
 function addSig(sev, stk, text, code){ SIGS.push({sev: sev, stk: stk, text: text, code: code || "", rank: sev === "crit" ? 0 : sev === "warn" ? 1 : 2}); }
@@ -460,19 +454,11 @@ function renderSignals(){
   });
 }
 function renderScan(){
-  document.getElementById("scaninfo").textContent = "上次全量扫描：" + (SCAN_META.time || "—") + "（每5分钟自动扫描全部" + LIST.length + "只，入选/掉出/阶段跃迁自动记录本机，跨天可对比）" + (SCAN_META.stats || "");
-  const box = document.getElementById("changes");
-  box.innerHTML = "";
-  if(!SCAN_META.changes.length){
-    box.innerHTML = '<div class="ok">📡 首次全量扫描将建立基线，之后的入选/掉出/阶段跃迁/信号自评都会记录在此。</div>';
-    return;
+  // v5.6：扫描变化日志已隐藏（不再刷屏）；信号自评仍在后台运行，仅在此输出一行统计
+  const el = document.getElementById("sigmeta");
+  if(el && SCAN_META && SCAN_META.stats){
+    el.textContent = el.textContent.replace(/｜近\d+个信号：.*$/, "") + SCAN_META.stats;
   }
-  SCAN_META.changes.forEach(function(c){
-    const div = document.createElement("div");
-    div.className = "sig info";
-    div.innerHTML = '<span style="color:#8b949e;font-size:12px">' + c.time + '</span>　' + c.ic + ' ' + c.tx;
-    box.appendChild(div);
-  });
 }
 function stageOf(price, K){
   if(!K) return null;
@@ -486,57 +472,37 @@ function stageOf(price, K){
   if(price > K.ma20 && K.ma5 > K.ma10 && !bull) return {id:3, name:"反转确认初期", cls:"b-s1"};
   return {id:0, name:"震荡", cls:"b-0"};
 }
-function stageName(id){ return {0:"—",1:"深跌·底部区",2:"筑底企稳",3:"反转确认初期",4:"主升段",5:"高位滞涨",6:"下跌通道"}[id] || "—"; }
 
 // ---------- 全量扫描对比与信号自评 ----------
+// v5.7：扫描变化日志已移除（v5.6起不再展示）；diffScan只保留信号自评内核——
+// 记录入选信号触发价、5个自然日后结算、统计胜率（≥5样本显示），用于校准评分权重。
 function diffScan(rows){
   const now = new Date();
   const DAY = 86400000;
   let prev = {}; try{ prev = JSON.parse(localStorage.getItem("qscan_state_v5") || "{}"); }catch(e){}
-  let log = []; try{ log = JSON.parse(localStorage.getItem("qscan_log") || "[]"); }catch(e){}
   let entries = []; try{ entries = JSON.parse(localStorage.getItem("qscan_entries") || "[]"); }catch(e){}
-  const cur = {}; const fresh = []; const byCode = {};
+  const cur = {}; const byCode = {}; const watch = [];
   rows.forEach(function(r){ if(r.K) byCode[r.code] = r; });
   rows.forEach(function(r){
     if(!r.K) return;
-    cur[r.code] = {t: r.total, s: r.stage ? r.stage.id : 0, v: r.rev, b: r.bonus > 0 ? 1 : 0};
+    cur[r.code] = {t: r.total, v: r.rev, b: r.bonus > 0 ? 1 : 0};
     const p = prev[r.code];
     if(!p) return;
-    if(r.total !== null && r.total >= 80 && (p.t === null || p.t === undefined || p.t < 80)) fresh.push({ic:"⭐", tx: r.name + " 进入重点关注区（综合分 " + (p.t === undefined ? "—" : p.t) + "→" + r.total + "）", code: r.code, watch: true});
-    if((r.total === null || r.total < 80) && p.t !== undefined && p.t !== null && p.t >= 80) fresh.push({ic:"⬇️", tx: r.name + " 掉出重点关注区（" + p.t + "→" + (r.total === null ? "—" : r.total) + "）", code: r.code});
-    if(r.stage && r.stage.id !== p.s && r.stage.id !== 0 && p.s !== 0) fresh.push({ic:"🔄", tx: r.name + " 阶段跃迁：" + stageName(p.s) + " → " + r.stage.name, code: r.code});
-    if(r.rev === 3 && p.v !== 3) fresh.push({ic:"🔵", tx: r.name + " 超跌反转触发（阶段③）", code: r.code, watch: true});
-    if(r.bonus > 0 && !p.b) fresh.push({ic:"🚀", tx: r.name + " 放量创20日新高（突破加成+5）", code: r.code});
+    if((r.total !== null && r.total >= 80 && (p.t === null || p.t === undefined || p.t < 80)) ||
+       (r.rev === 3 && p.v !== 3) ||
+       (r.bonus > 0 && !p.b)) watch.push(r);
   });
-  // v5.3三重防护：①基线要求"状态+日志双空"才创建（防单键写入失败导致每次刷新都重建）
-  // ②行情/K线未就绪（有效标的<10只）时不写任何存储（防空表覆盖基线）
-  // ③所有存储写入try/catch（防浏览器隐私模式/配额异常中断流程）
-  const curOK = Object.keys(cur).length >= 10;
-  if(Object.keys(prev).length === 0 && log.length === 0 && curOK){
-    const holds = rows.filter(function(r){ return isHold(r.code); }).length;
-    const vetoes = rows.filter(function(r){ return r.veto; }).length;
-    const hot = rows.filter(function(r){ return r.total !== null && r.total >= 80; }).length;
-    log.unshift({time: now.toLocaleString("zh-CN", {hour12:false}), ic:"📋", tx: "首次全量扫描基线建立：共" + rows.length + "只（持仓" + holds + "｜≥80分" + hot + "｜一票否决" + vetoes + "），此后入选/掉出/阶段跃迁自动记录"});
-  }
-  if(curOK){ try{ localStorage.setItem("qscan_state_v5", JSON.stringify(cur)); }catch(e){} }
-  // 信号自评：触发满5个自然日的记录结算一次
   entries.forEach(function(e){
     if(e.done) return;
     if(now.getTime() - e.ts >= 5 * DAY){
       const r = byCode[e.code];
       if(!r) return;
-      const pct = (r.price - e.price) / e.price * 100;
-      e.done = true; e.res = pct;
-      log.unshift({time: now.toLocaleString("zh-CN", {hour12:false}), ic:"🧪", tx: "信号自评：" + e.name + " 触发价 " + e.price + " → 现价 " + r.price + "（5日" + (pct > 0 ? "+" : "") + pct.toFixed(1) + "%）"});
+      e.done = true; e.res = (r.price - e.price) / e.price * 100;
     }
   });
-  fresh.forEach(function(c){
-    log.unshift({time: now.toLocaleString("zh-CN", {hour12:false}), ic: c.ic, tx: c.tx});
-    if(c.watch){ const r = byCode[c.code]; if(r && !r.veto) entries.unshift({code: c.code, name: r.name, price: r.price, ts: now.getTime(), done: false}); }
-  });
-  log = log.slice(0, 30);
+  watch.forEach(function(r){ if(!r.veto) entries.unshift({code: r.code, name: r.name, price: r.price, ts: now.getTime(), done: false}); });
   entries = entries.slice(0, 60);
-  try{ localStorage.setItem("qscan_log", JSON.stringify(log)); }catch(e){}
+  try{ localStorage.setItem("qscan_state_v5", JSON.stringify(cur)); }catch(e){}
   try{ localStorage.setItem("qscan_entries", JSON.stringify(entries)); }catch(e){}
   const done = entries.filter(function(e){ return e.done && e.res !== undefined; }).slice(0, 20);
   let stats = "";
@@ -545,7 +511,7 @@ function diffScan(rows){
     const avg = done.reduce(function(a, e){ return a + e.res; }, 0) / done.length;
     stats = "｜近" + done.length + "个信号：胜率" + Math.round(wins / done.length * 100) + "% 平均" + (avg > 0 ? "+" : "") + avg.toFixed(1) + "%（样本≥5才显示，用于校准权重）";
   }
-  return {time: now.toLocaleString("zh-CN", {hour12:false}), changes: log, stats: stats};
+  return {stats: stats};
 }
 
 function render(){
@@ -569,7 +535,6 @@ function render(){
     r.prof = (window.PROFILE_OF && window.PROFILE_OF[s[0]]) || "growth";
     r.thermo = (window.THERMOMETER || []).indexOf(s[0]) >= 0;
     r.tech = techScore(r, K);
-    r.ev = 0; // v5.1纯技术口径：事件分不再计入总分
     // 超跌反转状态机：0无 1超跌 2企稳 3触发
     r.rev = 0;
     if(K){
@@ -579,14 +544,11 @@ function render(){
     }
     r.stage = stageOf(price, K);
     // v5.4：自动否决移至rows构建后统一判定（需先取得大盘当日跌幅）
-    r.total = (r.tech === null) ? null : r.tech + r.ev + (r.rev === 2 ? 12 : r.rev === 3 ? 20 : 0);
+    r.total = (r.tech === null) ? null : r.tech + (r.rev === 2 ? 12 : r.rev === 3 ? 20 : 0);
     r.bonus = 0;
     if(r.total !== null) r.total = Math.min(100, r.total);
     if(r.total !== null && K && K.pos20 !== null && K.pos20 >= 98 && r.volratio !== null && r.volratio > 1.5){ r.bonus = 5; r.total = Math.min(100, r.total + 5); }
     // 一票否决：VETO生效期间总分压至59以下，买入类信号全部冻结（卖出纪律不受影响）
-    const vv = BUILTIN_VETO[r.code];
-    r.veto = (vv && (!vv.until || new Date(vv.until).getTime() > Date.now())) ? vv : null;
-    if(r.veto && r.total !== null){ r.total = Math.min(r.total, 59); }
     r.grade = r.total === null ? null : gradeOf(r.total);
     rows.push(r);
   });
@@ -602,7 +564,10 @@ function render(){
     if(K && K.ll20 && r.price < K.ll20 && r.volratio !== null && r.volratio > 1.8 && r.pct < -3){
       const sysDown = r.isA ? idxPctA <= -2 : idxPctUS <= -2;
       if(!sysDown) r.veto = {until:null, reason:"放量破20日低点：超跌形态被破坏，疑下跌中继而非底部（自动否决）"};
-      if(r.veto && r.total !== null) r.total = Math.min(r.total, 59);
+      if(r.veto && r.total !== null){
+        r.total = Math.min(r.total, 59);
+        r.grade = gradeOf(r.total);   // v5.7修复：否决后同步重算等级徽章，防止显示过期⭐/🔥
+      }
     }
   });
   // v5.2：RS池内评级（20日涨幅百分位）+ 池内市场宽度温度计
@@ -805,7 +770,7 @@ function renderEvents(items){
   box.innerHTML =
     '<div style="font-size:12px;color:#8b949e;margin-bottom:6px">共 ' + items.length + ' 条｜🔴重要 ' + imp.length + '｜⭐自选相关 ' + watch.length +
     '｜来源：' + EV_FEED.src + '｜抓取于 ' + EV_FEED.at.toLocaleTimeString("zh-CN") +
-    '｜<a style="color:#58a6ff" href="https://glenman.github.io/daily-finance-news/" target="_blank">源站↗</a> <a style="color:#58a6ff" href="https://www.jin10.com/" target="_blank">金十↗</a></div>' +
+    '｜<a style="color:#58a6ff" href="https://www.jin10.com/" target="_blank">金十↗</a> <a style="color:#58a6ff" href="https://www.cls.cn/" target="_blank">财联社↗</a></div>' +
     show.map(function(x){
       const tag = x.country ? '<span class="stk">' + escapeHtml(x.country) + '</span>'
                   : (x.source ? '<span class="stk">' + escapeHtml(String(x.source).slice(0, 6)) + '</span>' : '');
@@ -850,13 +815,6 @@ function loadKlines(){
     }); });
   }
   p.then(function(){ kdReady = true; doDiff = true; render(); });
-}
-function clearScan(){
-  try{ ["qscan_state_v5","qscan_log","qscan_entries"].forEach(function(k){ localStorage.removeItem(k); }); }catch(e){}
-  SCAN_META = {time: null, changes: [], stats: ""};
-  renderScan();
-  const st = document.getElementById("status");
-  if(st) st.textContent = "扫描记录已清空，下次全量扫描将重建基线";
 }
 function toggleAuto(){
   auto = !auto;
