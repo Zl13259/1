@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v6.1</title>
+<title>信号监控 v6.2</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v6.1</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v6.2</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -326,11 +326,11 @@ function parseTencent(code, j){
 function loadKline(code){
   const sid = secidOf(code);
   if(!sid){ window["k_" + code] = null; return Promise.resolve(); }
-  return fetch("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + sid + "&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&klt=101&fqt=1&beg=0&end=20500101")
+  return fetchTO("https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + sid + "&fields1=f1,f2,f3&fields2=f51,f52,f53,f54,f55,f56&klt=101&fqt=1&beg=0&end=20500101", 9000)
     .then(function(r){ return r.json(); })
     .then(function(j){ parseEastmoney(code, j); })
     .catch(function(){
-      return fetch("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + code + ",day,,,320,qfq")
+      return fetchTO("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + code + ",day,,,320,qfq", 9000)
         .then(function(r){ return r.json(); })
         .then(function(j){ parseTencent(code, j); })
         .catch(function(){ window["k_" + code] = null; });
@@ -644,8 +644,10 @@ function render(){
   renderScan();
   const now = new Date();
   document.getElementById("clock").textContent = now.toLocaleTimeString("zh-CN");
+  let kN = 0; LIST.forEach(function(s){ if(window["k_" + s[0]]) kN++; });
   document.getElementById("status").textContent = "已更新 " + now.toLocaleTimeString("zh-CN") +
-    "（行情 " + ok + " 成功" + (kdReady ? "，指标已加载" : "，指标加载中…") + "）";
+    "｜行情" + ok + "成功/" + fail + "失败｜指标" + kN + "/" + LIST.length +
+    "｜事件源：" + (EV_FEED.src || "加载中…");
 }
 // ---------- 事件信息源：多源级联自动抓取（仅展示不入评分；全部失败才降级提示） ----------
 function escapeHtml(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
@@ -726,32 +728,25 @@ const EV_SOURCES = [
   {name:"每日财经(jsdelivr·兜底)", make:function(){ return "https://cdn.jsdelivr.net/gh/glenman/daily-finance-news@main/data/" + dstr(new Date()) + ".json"; }, parse:parseDFN}
 ];
 
+// v6.2：事件源分组并行抢答——权威3源同时发问，先到先用（总等待从串行72s降到≤9s）；
+// 权威组全败→代理组并行→聚合兜底组；全部失败才显示降级提示。
 function loadEventSrc(){
-  let i = 0;
-  function done(s, items){
-    EV_FEED.items = items; EV_FEED.src = s.name; EV_FEED.at = new Date();
-    digestEvents(); renderEvents(items);
+  const groups = [EV_SOURCES.slice(0, 3), EV_SOURCES.slice(3, 6), EV_SOURCES.slice(6)];
+  let g = 0;
+  function tryGroup(){
+    if(g >= groups.length){ renderEvents(null); return; }
+    const gs = groups[g++];
+    let pending = gs.length, won = false;
+    gs.forEach(function(s){
+      fetchTO(s.make(), 7000).then(function(r){ return r.json(); }).then(function(jj){
+        const items = s.parse(jj);
+        if(items && items.length && !won){ won = true; EV_FEED.items = items; EV_FEED.src = s.name; EV_FEED.at = new Date(); digestEvents(); renderEvents(items); }
+      }).catch(function(){}).then(function(){
+        if(--pending === 0 && !won) tryGroup();
+      });
+    });
   }
-  function tryNext(){
-    if(i >= EV_SOURCES.length){ renderEvents(null); return; }
-    const s = EV_SOURCES[i++];
-    if(s.index){
-      fetchTO(DFN_BASE + "index.json").then(function(r){ return r.json(); }).then(function(j){
-        if(j && j.latestDate){
-          fetchTO(DFN_BASE + j.latestDate + ".json").then(function(r){ return r.json(); }).then(function(jj){
-            const items = s.parse(jj);
-            if(items && items.length){ done(s, items); } else tryNext();
-          }).catch(tryNext);
-        } else tryNext();
-      }).catch(tryNext);
-      return;
-    }
-    fetchTO(s.make()).then(function(r){ return r.json(); }).then(function(j){
-      const items = s.parse(j);
-      if(items && items.length){ done(s, items); } else tryNext();
-    }).catch(tryNext);
-  }
-  tryNext();
+  tryGroup();
 }
 function digestEvents(){
   EV_FEED.alerts = []; EV_FEED.macro = false;
@@ -790,13 +785,51 @@ function loadQuotes(){
   const old = document.getElementById("qs");
   if(old) old.remove();
   LIST.forEach(function(s){ delete window["v_" + s[0]]; });
+  const st = document.getElementById("status");
+  let switched = false;
+  function toEastmoney(why){
+    if(switched) return; switched = true;
+    if(st) st.textContent = "腾讯行情" + why + "，切换东财备用源…";
+    loadQuotesEM().then(function(){ render(); })
+      .catch(function(){ if(st) st.textContent = "行情双源均失败：检查网络后点刷新（东财源错误：" + (window.__emErr || "?") + "）"; });
+  }
   const sc = document.createElement("script");
   sc.id = "qs";
   sc.charset = "gbk";
   sc.src = "https://qt.gtimg.cn/q=" + LIST.map(function(s){return s[0];}).join(",") + "&_=" + Date.now();
   sc.onload = render;
-  sc.onerror = function(){ document.getElementById("status").textContent = "行情网络错误，稍后重试"; };
+  sc.onerror = function(){ toEastmoney("连接失败"); };
   document.body.appendChild(sc);
+  // 腾讯源挂起无响应时的兜底：10秒无数据自动切东财
+  setTimeout(function(){
+    if(!switched && !window["v_" + LIST[0][0]]) toEastmoney("无响应");
+  }, 10000);
+}
+// v6.2 东财行情备用源：一次性拉全部标的，组装成腾讯同格式，渲染层零改动
+function loadQuotesEM(){
+  const secids = LIST.map(function(s){ return secidOf(s[0]); }).filter(Boolean);
+  const url = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f2,f3,f8,f10,f12,f14,f15,f16,f17&secids=" + secids.join(",") + "&_=" + Date.now();
+  return fetchTO(url, 9000).then(function(r){ return r.json(); }).then(function(j){
+    let diff = j && j.data && j.data.diff;
+    if(!diff) throw 0;
+    if(Array.isArray(diff)){
+      const m = {};
+      diff.forEach(function(d){ m[String(d.f12)] = d; });
+      diff = m;   // 数组形态转按代码索引
+    }
+    LIST.forEach(function(s){
+      const sid = secidOf(s[0]);
+      let d = diff[sid];
+      if(!d && s[0].indexOf("us") === 0) d = diff[s[0].slice(2)];
+      if(!d){ window.__emErr = s[0]; return; }
+      const a = [];
+      a[1] = d.f14; a[2] = d.f12; a[3] = d.f2;
+      a[4] = (d.f2 && d.f3 !== undefined && d.f3 !== null) ? +(d.f2 / (1 + d.f3 / 100)).toFixed(4) : 0;
+      a[5] = d.f17;
+      a[32] = d.f3; a[33] = d.f15; a[34] = d.f16; a[38] = d.f8; a[49] = d.f10;
+      window["v_" + s[0]] = a.join("~");
+    });
+  }).catch(function(e){ window.__emErr = String(e && e.message || e); throw e; });
 }
 let cyc = 0;
 function loadAll(force){
@@ -808,6 +841,7 @@ function loadAll(force){
 loadAll(true);
 function loadKlines(){
   kdReady = false;
+  setTimeout(function(){ if(!kdReady){ kdReady = true; render(); } }, 15000);
   const jobs = KSET.map(function(i){ return LIST[i][0]; });
   let done = 0;
   let p = Promise.resolve();
