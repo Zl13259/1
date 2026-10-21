@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v6.3</title>
+<title>信号监控 v6.4</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v6.3</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v6.4</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -60,6 +60,12 @@
 <div id="breadth" style="font-size:12px;color:#98989d;margin:2px 0 8px"></div>
 <h2>📅 重要事件（东财/金十权威源·聚合兜底·仅展示不入评分）</h2>
 <div id="evsrc" style="font-size:13px;color:#98989d;margin:2px 0 4px">加载中…</div>
+<details id="evpaste" style="margin:8px 0">
+  <summary style="font-size:13px;color:#0a84ff;cursor:pointer">📥 手动粘贴快讯兜底（事件源被跨域拦截时用，粘贴后点解析）</summary>
+  <textarea id="evpaste_ta" placeholder="从金十/东财App复制快讯，每行一条，粘贴后点下方解析按钮——⭐自选/🔴风险关键词会自动识别置顶" style="width:100%;height:90px;background:#1c1c1e;color:#fff;border:.5px solid rgba(255,255,255,.15);border-radius:10px;padding:8px;font-size:13px;margin-top:6px;box-sizing:border-box"></textarea>
+  <button class="sec" style="margin-top:6px" onclick="parsePasted()">解析为事件流</button>
+  <span id="evpaste_st" style="font-size:12px;color:#98989d;margin-left:8px"></span>
+</details>
 <h2>📋 预警与信号（操作优先级最高）</h2>
 <div id="sigmeta" style="font-size:12px;color:#98989d;margin:2px 0 8px"></div>
 <div id="signals"></div>
@@ -82,6 +88,7 @@
   <b>支撑/压力</b>=MA5/10/20/60、20/60日高低点、布林轨多指标共振加权（重合度越高权重越大）。<b>建议买入区</b>=强支撑±0.5×ATR（回踩参考）；<b>建议卖出区</b>=压力带内；<b>止损参考</b>=强支撑下方1×ATR。<br>
   <b>RS评级</b>：20日涨幅在本次扫描全部标的内的百分位（0-99，池内相对强度）；<b>M模板</b>：Minervini趋势模板六条件通过数——现价>MA150、现价>MA200、MA50>MA150、MA200上行、距52周高点≤25%、现价>MA50；≥5强势趋势/4及格/≤3警惕（长期数据不足的标的自动不显示）。<b>🌡️池内宽度</b>：页顶显示池内涨跌家数与20日新高/新低，辅助判断情绪极值。<br>
   <b>💸成本磨损</b>：A股短线往返成本约0.15%（佣金+印花税+滑点），网格/价差类策略利润空间须先覆盖成本；信号结算以触发时价为准，勿用盘中极值估价。<br>
+  v6.4：事件层重写——双直连源+本地news.json自动化钩子+📥手动粘贴兜底区（CORS拦截时复制金十App快讯粘贴即可）；能打开网站≠网页能抓取（跨域安全策略）。<br>
   📅重要事件区：东财快讯+金十日历双权威源并行抓取；🔴重要新闻与⭐自选相关词自动置顶，风险类关键词自动生成红色预警；盘中异动（涨跌±5%、振幅>8%、量比>3）由页面自动检测；同板块≥3只齐发同类信号自动合并为板块联动一条。本页为技术面参考，不构成交易建议；成本与纪律分析见晨报/晚报。
 </div>
 <script src="./list.js"></script>
@@ -745,8 +752,20 @@ function parseJIN10(j){
 const EV_SOURCES = [
   // v6.3：只保留两个权威直连源（聚合源/代理/财联社均已删除）
   {name:"东财快讯", to:4000, make:function(){ return "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30"; }, parse:parseEM},
-  {name:"金十日历", to:4000, make:function(){ return "https://cdn-rili.jin10.com/data/" + dstr(new Date()) + "/economics.json"; }, parse:parseJIN10}
+  {name:"金十日历", to:4000, make:function(){ return "https://cdn-rili.jin10.com/data/" + dstr(new Date()) + "/economics.json"; }, parse:parseJIN10},
+  // v6.4：加本地news.json钩子（与网页同目录，同域永不拦；未来可用GitHub Actions每日生成）
+  {name:"本地news.json", to:2000, make:function(){ return "./news.json?_=" + Date.now(); }, parse:parseLOCAL}
 ];
+// news.json格式：字符串数组 或 [{title,summary,time,importance}]，GitHub Actions生成时按此输出
+function parseLOCAL(j){
+  const l = Array.isArray(j) ? j : (j && j.items);
+  if(!Array.isArray(l) || !l.length) return null;
+  return l.map(function(x){
+    if(typeof x === "string") return {time:"", text:x, source:"news.json", imp:1};
+    return {time:String(x.time||"").slice(5,16), text:String(x.title||"")+(x.summary?"："+x.summary:""), url:x.url, source:"news.json",
+            imp:x.importance==="high"?3:(x.importance==="medium"?2:1)};
+  }).filter(function(x){ return x.text; });
+}
 
 // v6.3：两源并行抢答（先到先用，最坏等待4s）；全部失败才显示降级提示
 function loadEventSrc(){
@@ -776,11 +795,25 @@ function digestEvents(){
   if(EV_FEED.macro) EV_FEED.alerts.push({lvl:"warn", title:"利率事件", text:"信息流含央行议息/利率类事件：利率敏感窗口，新开仓建议仓位减半（自动检测）"});
   if(EV_FEED.items.some(function(x){ return EV_RISK.test(x.text); })) EV_FEED.alerts.push({lvl:"red", title:"风险快讯", text:"信息流检测到违约/破产/退市/冲突类关键词：留意持仓相关风险（自动检测，细节以金十App/晨报为准）"});
 }
+// v6.4：手动粘贴兜底——把粘贴的快讯文本解析进事件流，走同一套关键词引擎（⭐置顶/🔴预警/宏观检测）
+function parsePasted(){
+  const ta = document.getElementById("evpaste_ta");
+  const st = document.getElementById("evpaste_st");
+  const txt = (ta.value || "").trim();
+  if(!txt){ if(st) st.textContent = "先粘贴内容"; return; }
+  const items = txt.split(/\n+/).map(function(l){ return l.trim(); }).filter(Boolean).map(function(l){
+    return {time:"", text:l.replace(/^[🔴🟡⭐🔥\s]+/, ""), source:"手动粘贴", imp:1};
+  });
+  try{ sessionStorage.setItem("q_ev_paste", txt); }catch(e){}
+  EV_FEED.items = items; EV_FEED.src = "手动粘贴"; EV_FEED.at = new Date();
+  digestEvents(); renderEvents(items);
+  if(st) st.textContent = "已解析 " + items.length + " 条";
+}
 function renderEvents(items){
   const box = document.getElementById("evsrc");
   if(!box) return;
   if(!items){
-    box.innerHTML = '<div class="sig info">⚠️ 事件源全部抓取失败（网络/跨域限制）：请用金十App「只看重要」+ 晨报/晚报兜底。本页技术面评分不受影响。<br><a style="color:#0a84ff" href="https://www.jin10.com/" target="_blank">打开金十数据 ↗</a></div>';
+    box.innerHTML = '<div class="sig info">⚠️ 事件源抓取失败——根因是浏览器<b>跨域安全策略(CORS)</b>：你能打开金十/东财网站，但github.io上的网页去fetch它们会被对方服务器拒绝（报价能显示是因为script标签不受CORS限制）。三条出路：<br>① 用上方 📥手动粘贴区：金十App「只看重要」复制快讯→粘贴→解析（关键词自动识别⭐🔴）；<br>② 回报Kimi，按你的网络环境换源；<br>③ 进阶：GitHub Actions每日生成同目录news.json，彻底绕开CORS。<br>本页技术面评分不受影响。<br><a style="color:#0a84ff" href="https://www.jin10.com/" target="_blank">打开金十数据 ↗</a></div>';
     return;
   }
   const imp = items.filter(function(x){ return (x.imp || 0) >= 2; });
@@ -897,7 +930,8 @@ timer = setInterval(function(){ if(auto) loadAll(); }, 60000);
 // v6.3：切后台暂停轮询（省流量省电），回前台立即全量刷新
 document.addEventListener("visibilitychange", function(){
   if(document.hidden){ clearInterval(timer); timer = null; }
-  else if(auto && !timer){ loadAll(true); timer = setInterval(function(){ if(auto) loadAll(); }, 60000); }
+  else if(auto && !timer){ try{ const _p = sessionStorage.getItem("q_ev_paste"); if(_p){ const _t = document.getElementById("evpaste_ta"); if(_t) _t.value = _p; } }catch(e){}
+loadAll(true); timer = setInterval(function(){ if(auto) loadAll(); }, 60000); }
 });
 </script>
 </body>
