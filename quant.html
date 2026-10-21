@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>量化信号监控 v4.3</title>
+<title>量化信号监控 v4.4</title>
 <style>
   body{font-family:-apple-system,"PingFang SC",sans-serif;margin:0;padding:12px;background:#0d1117;color:#e6edf3;font-size:15px}
   .nav{margin:0 0 10px;font-size:14px}
@@ -56,7 +56,7 @@
   <span style="color:#8b949e"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>🤖 量化信号监控 v4.3 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
+<h1>🤖 量化信号监控 v4.4 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -282,20 +282,32 @@ function macdText(K2){
   return "MACD空头";
 }
 function loadKline(code){
-  return fetch("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + code + ",day,,,320,qfq")
-    .then(function(r){ return r.json(); })
-    .then(function(j){
-      const d = j.data && j.data[code];
-      const arr = (d && (d.qfqday || d.day)) || [];
-      const opens = arr.map(function(x){ return +x[1]; });
-      const closes = arr.map(function(x){ return +x[2]; });
-      const highs = arr.map(function(x){ return +x[3]; });
-      const lows = arr.map(function(x){ return +x[4]; });
-      const vols = arr.map(function(x){ return +x[5]; });
-      if(closes.length < 30) throw 0;
-      window["k_" + code] = calcAll(closes, highs, lows, opens, vols);
-    })
-    .catch(function(){ window["k_" + code] = null; });
+  // JSONP加载（v4.4）：script标签跨域不受CORS限制，8秒超时兜底
+  return new Promise(function(resolve){
+    const cb = "_klcb_" + code.replace(/[^a-zA-Z0-9]/g, "");
+    let settled = false;
+    function done(){ if(settled) return; settled = true; clearTimeout(to); const s = document.getElementById("kls_" + cb); if(s) s.remove(); try{ delete window[cb]; }catch(e){} resolve(); }
+    const to = setTimeout(function(){ window["k_" + code] = null; done(); }, 8000);
+    window[cb] = function(j){
+      try{
+        const d = j && j.data && j.data[code];
+        const arr = (d && (d.qfqday || d.day)) || [];
+        const opens = arr.map(function(x){ return +x[1]; });
+        const closes = arr.map(function(x){ return +x[2]; });
+        const highs = arr.map(function(x){ return +x[3]; });
+        const lows = arr.map(function(x){ return +x[4]; });
+        const vols = arr.map(function(x){ return +x[5]; });
+        if(closes.length < 30) throw 0;
+        window["k_" + code] = calcAll(closes, highs, lows, opens, vols);
+      }catch(e){ window["k_" + code] = null; }
+      done();
+    };
+    const sc = document.createElement("script");
+    sc.id = "kls_" + cb;
+    sc.charset = "utf-8";
+    sc.src = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + code + ",day,,,320,qfq&callback=" + cb;
+    document.body.appendChild(sc);
+  });
 }
 function loadEvents(){
   window.EVENTS = {}; window.ALERTS = []; window.ES = {};
@@ -474,6 +486,12 @@ function diffScan(rows){
     if(r.rev === 3 && p.v !== 3) fresh.push({ic:"🔵", tx: r.name + " 超跌反转触发（阶段③）", code: r.code, watch: true});
     if(r.bonus > 0 && !p.b) fresh.push({ic:"🚀", tx: r.name + " 放量创20日新高（突破加成+5）", code: r.code});
   });
+  if(Object.keys(prev).length === 0){
+    const holds = rows.filter(function(r){ return isHold(r.code); }).length;
+    const vetoes = rows.filter(function(r){ return r.veto; }).length;
+    const hot = rows.filter(function(r){ return r.total !== null && r.total >= 80; }).length;
+    log.unshift({time: now.toLocaleString("zh-CN", {hour12:false}), ic:"📋", tx: "首次全量扫描基线建立：共" + rows.length + "只（持仓" + holds + "｜≥80分" + hot + "｜一票否决" + vetoes + "），此后入选/掉出/阶段跃迁自动记录"});
+  }
   localStorage.setItem("qscan_state", JSON.stringify(cur));
   // 信号自评：触发满5个自然日的记录结算一次
   entries.forEach(function(e){
@@ -587,6 +605,8 @@ function render(){
         '<td>' + (K2 && K2.pos52 !== null ? fmt(K2.pos52,0) + "%" : "—") + '</td>';
       tb.appendChild(tr);
       if(!K2) return;
+      if(isHold(r.code)) addSig("info", r.name, "状态 " + fmt(r.price) + "(" + (r.pct > 0 ? "+" : "") + fmt(r.pct) + "%)" + (r.stage ? "｜阶段:" + r.stage.name : "｜指标加载中") + (r.K ? "｜RSI:" + fmt(r.K.rsi,0) : ""), r.code);
+      if(window.EVENTS && window.EVENTS[r.code]) addSig("info", r.name, "📰 " + window.EVENTS[r.code], r.code);
       if(r.veto) addSig("crit", r.name, "🚫一票否决生效中：" + r.veto.reason + "——所有买入类信号冻结，卖出/止损纪律不受影响", r.code);
       if(r.total !== null && r.total >= 90 && !r.veto) addSig("info", r.name, "🔥综合" + r.total + "分：近期交易候选——等回踩支撑或突破确认再动手", r.code);
       if(r.rev === 3 && !r.veto) addSig("warn", r.name, "🔵超跌反转触发：可小仓试探（仓位纪律优先），止损=" + fmt(K2.ll20 - K2.atr) + "（前低-1×ATR）", r.code);
@@ -606,6 +626,9 @@ function render(){
       if(Math.abs(r.pct) >= 5) addSig(r.pct < -5 ? "crit" : "warn", r.name, (r.pct > 0 ? "大涨" : "大跌") + fmt(r.pct) + "%：盘中异动，查消息", r.code);
       if(K2.atr && r.high > 0 && (r.high - r.low) / r.low * 100 > 8) addSig("warn", r.name, "振幅超8%：多空激烈博弈，勿追涨杀跌", r.code);
     });
+  });
+  (window.ALERTS || []).forEach(function(a){
+    if(!a.until || new Date(a.until).getTime() > Date.now()) addSig("crit", a.title || "重大事件", a.text);
   });
   renderSignals();
   if(doDiff){ SCAN_META = diffScan(rows); doDiff = false; }
@@ -637,10 +660,15 @@ loadAll(true);
 function loadKlines(){
   kdReady = false;
   const jobs = KSET.map(function(i){ return LIST[i][0]; });
+  let done = 0;
   let p = Promise.resolve();
   for(let i = 0; i < jobs.length; i += 10){
     const batch = jobs.slice(i, i + 10);
-    p = p.then(function(){ return Promise.all(batch.map(loadKline)); });
+    p = p.then(function(){ return Promise.all(batch.map(loadKline)).then(function(){
+      done += batch.length;
+      const st = document.getElementById("status");
+      if(st) st.textContent = "行情已加载，指标加载中 " + done + "/" + jobs.length + "…";
+    }); });
   }
   p.then(function(){ kdReady = true; doDiff = true; render(); });
 }
