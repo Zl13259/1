@@ -52,17 +52,31 @@
 <div id="brief"></div>
 <div class="note">
   量比仅A股有效（美股/指数该字段无效，忽略）；A股交易时段 09:30-15:00，美股 21:30-04:00（夏令），非交易时段显示上一收盘。<br>
-  观察股/指数的"距成本"以设置日收盘价为基准，仅持仓股有参考意义。
+  仅前6只持仓显示距成本；自选关注只显示行情，成本与深度分析见信号页/晨报。
 </div>
 <script>
-// [腾讯代码, 显示名] —— 前6只为持仓（成本本机输入，永不上传）；TXN/LRCX=存储链温度计 2026-10-21 新增
+// [腾讯代码, 显示名] 前6只=持仓(成本本机输入,永不上传) 7-20=指数/美股观察 21起=自选关注(2026-10-21 同步信号页 39只)
 const LIST = [
   ["sh603893","瑞芯微"],["sz300014","亿纬"],["sh510300","300ETF"],
   ["usNVDA","NVDA"],["usDRAM","DRAM"],["usINTC","INTC"],
   ["usMETA","Meta"],["usGOOGL","谷歌"],["usTSLA","特斯拉"],
   ["usKLAC","科磊"],["usSOXS","SOXS"],["usMU","美光"],
   ["sh000001","上证"],["sz399006","创业板"],["sh512480","半导体"],
-  ["usIXIC","纳指"],["usINX","标普"],["usDJI","道指"],["usTXN","德州仪器"],["usLRCX","泛林"]
+  ["usIXIC","纳指"],["usINX","标普"],["usDJI","道指"],["usTXN","德州仪器"],["usLRCX","泛林"],
+  ["sz300750","宁德时代"],["sh600030","中信证券"],["sh600887","伊利股份"],
+  ["sz002352","顺丰控股"],["sz301326","捷邦科技"],["sz000962","东方钽业"],
+  ["sh688629","华丰科技"],["sz002407","多氟多"],["sz002008","大族激光"],
+  ["sh600176","中国巨石"],["sz002050","三花智控"],["sh601288","农业银行"],
+  ["sh603259","药明康德"],["sh600895","张江高科"],["sh601166","兴业银行"],
+  ["sz000858","五粮液"],["sh600036","招商银行"],["sh600900","长江电力"],
+  ["sh601899","紫金矿业"],["sz002409","雅克科技"],["sh600206","有研新材"],
+  ["sh600276","恒瑞医药"],["sh601598","中国外运"],["sh600549","厦门钨业"],
+  ["sz000988","华工科技"],["sz300661","圣邦股份"],["sh600345","长江通信"],
+  ["sh601919","中远海控"],["sz002428","云南锗业"],
+  ["sh516150","稀土ETF"],["sh512890","红利低波ETF"],["sh518880","黄金ETF"],
+  ["sh562800","稀有金属ETF"],["sz159992","创新药ETF"],["sh588000","科创50ETF"],
+  ["sh513300","纳指ETF"],["sh510210","上证指数ETF"],["sh510500","中证500ETF"],
+  ["sh562950","消费电子ETF"]
 ];
 const HOLD = 6; // 前6只为持仓
 let auto = true, timer = null;
@@ -90,6 +104,11 @@ function render(){
   let brief = "";
   let ok = 0, fail = 0;
   LIST.forEach(function(s, i){
+    if(i === 20){
+      const sep = document.createElement("tr");
+      sep.innerHTML = '<td colspan="8" style="text-align:left;color:#58a6ff;font-size:12px;padding:10px 6px 4px">—— 自选关注（39只，与信号页同步）——</td>';
+      document.querySelector("#tbl tbody").appendChild(sep);
+    }
     const raw = window["v_" + s[0]];
     if(!raw){ fail++; return; }
     ok++;
@@ -97,7 +116,7 @@ function render(){
     const price = +f[3], pct = +f[32], high = +f[33], low = +f[34];
     const turnover = f[38] === "" ? null : +f[38];
     const volratio = (+f[49] > 0 && +f[49] < 50) ? +f[49] : null; // 过滤美股52周低等无效值
-    const dcost = COSTS ? (price - COSTS[i]) / COSTS[i] * 100 : null;
+    const dcost = (i < HOLD && COSTS) ? (price - COSTS[i]) / COSTS[i] * 100 : null;
     const cls = pct > 0 ? "up" : pct < 0 ? "dn" : "";
     const isHold = i < HOLD;
     const alertCls = (isHold && dcost !== null && dcost <= -15) ? "alert" : "";
