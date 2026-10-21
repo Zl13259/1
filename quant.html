@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>量化信号监控 v2</title>
+<style>
+  body{font-family:-apple-system,"PingFang SC",sans-serif;margin:0;padding:12px;background:#0d1117;color:#e6edf3;font-size:15px}
+  h1{font-size:17px;margin:4px 0 10px}
+  .bar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  button{background:#1f6feb;color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:15px}
+  button.sec{background:#21262d;border:1px solid #30363d}
+  #status{color:#8b949e;font-size:13px;margin:6px 0}
+  #signals{margin:10px 0}
+  .sig{border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:14px;line-height:1.5}
+  .sig.crit{background:rgba(248,81,73,.18);border:1px solid #f85149}
+  .sig.warn{background:rgba(210,153,34,.15);border:1px solid #d29922}
+  .sig.info{background:#161b22;border:1px solid #30363d;color:#c9d1d9}
+  .sig .tag{font-weight:bold;margin-right:6px}
+  .sig.crit .tag{color:#f85149}.sig.warn .tag{color:#d29922}
+  .ok{background:#161b22;border:1px solid #30363d;color:#3fb950;padding:10px 12px;border-radius:8px;font-size:14px}
+  table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;margin-top:6px}
+  th,td{padding:7px 4px;border-bottom:1px solid #21262d;text-align:right;white-space:nowrap;font-size:14px}
+  th{color:#8b949e;font-weight:normal;font-size:11px}
+  td.l,th.l{text-align:left}
+  .up{color:#f85149}.dn{color:#3fb950}
+  .alert{background:rgba(248,81,73,.12)}
+  .note{color:#8b949e;font-size:12px;margin-top:10px;line-height:1.7}
+</style>
+</head>
+<body>
+<h1>🤖 量化信号监控 v2 <span id="clock" style="font-size:12px;color:#8b949e"></span></h1>
+<div class="bar">
+  <button onclick="loadAll()">刷新</button>
+  <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
+</div>
+<div id="status">加载中…</div>
+<div id="signals"></div>
+<table id="tbl">
+  <thead><tr>
+    <th class="l">名称</th><th>现价</th><th>涨幅%</th><th>距成本%</th><th>趋势</th><th>RSI14</th><th>20日位</th><th>高/低</th><th>换手%</th><th>量比</th>
+  </tr></thead>
+  <tbody></tbody>
+</table>
+<div class="note">
+  三层信号体系（v2，2026-10-21）：<br>
+  <b style="color:#f85149">纪律层</b>：① 持仓浮亏 ≤ -15% 强制复盘执行 ② ≤ -10% 预警 —— 来自账本，最高优先级<br>
+  <b style="color:#d29922">趋势层（本次新增）</b>：③ MA5金叉/死叉MA20 ④ RSI≥70超买 / ≤30超卖 ⑤ 持仓股跌破MA20且RSI&lt;40=趋势转弱预警<br>
+  <b>情绪层</b>：⑥ A股量比&gt;2且涨&gt;5%=过热不追 ⑦ |涨幅|≥7%=异动 ⑧ 贴最高+放量=强 / 回落过半=弱<br>
+  趋势列含义：MA5&gt;MA20为"多"，反之为"空"；20日位=现价在20日高低区间中的位置（100%=创新高，0%=创新低）。<br>
+  日K数据来自腾讯 ifzq 接口，个别标的可能显示"—"（接口限流或该标的不支持），不影响其他功能。<br>
+  本页只做监控提醒，不构成交易建议；执行决策永远由人做。量比仅A股有效。
+</div>
+<script>
+const LIST = [
+  ["sh603893","瑞芯微"],["sz300014","亿纬"],["sh510300","300ETF"],
+  ["usNVDA","NVDA"],["usDRAM","DRAM"],["usINTC","INTC"],
+  ["usMETA","Meta"],["usGOOGL","谷歌"],["usTSLA","特斯拉"],
+  ["usKLAC","科磊"],["usSOXS","SOXS"],["usMU","美光"],
+  ["sh000001","上证"],["sz399006","创业板"],["sh512480","半导体"],
+  ["usIXIC","纳指"],["usINX","标普"],["usDJI","道指"],
+  ["usTXN","德州仪器"],["usLRCX","泛林"]
+];
+const HOLD = 6;
+let auto = true, timer = null, kdReady = false;
+let COSTS = null;
+try { COSTS = JSON.parse(localStorage.getItem("costs") || "null"); } catch(e) { COSTS = null; }
+
+function fmt(n, d){ return (+n).toFixed(d === undefined ? 2 : d); }
+function addSig(sev, text){
+  const div = document.createElement("div");
+  div.className = "sig " + sev;
+  const tag = sev === "crit" ? "【纪律】" : sev === "warn" ? "【预警】" : "【关注】";
+  div.innerHTML = '<span class="tag">' + tag + '</span>' + text;
+  document.getElementById("signals").appendChild(div);
+}
+
+// ---- 日K计算：MA5/MA20、RSI14、20日区间位置、金叉死叉 ----
+function calcK(closes){
+  const n = closes.length;
+  if(n < 21) return null;
+  const ma = function(p){ let s = 0; for(let i = n - p; i < n; i++) s += closes[i]; return s / p; };
+  const ma5 = ma(5), ma20 = ma(20);
+  const ma5p = (function(){ let s = 0; for(let i = n - 6; i < n - 1; i++) s += closes[i]; return s / 5; })();
+  const ma20p = (function(){ let s = 0; for(let i = n - 21; i < n - 1; i++) s += closes[i]; return s / 20; })();
+  // RSI14 (Wilder)
+  let g = 0, l = 0;
+  for(let i = n - 14; i < n; i++){
+    const d = closes[i] - closes[i-1];
+    if(d > 0) g += d; else l -= d;
+  }
+  const rsi = (l === 0) ? 100 : 100 - 100 / (1 + g / l);
+  return { ma5: ma5, ma20: ma20, rsi: rsi,
+           crossUp: ma5p <= ma20p && ma5 > ma20,
+           crossDn: ma5p >= ma20p && ma5 < ma20 };
+}
+
+function loadKline(code){
+  return fetch("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + code + ",day,,,60,qfq")
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      const d = j.data && j.data[code];
+      const arr = (d && (d.qfqday || d.day)) || [];
+      const closes = arr.map(function(x){ return +x[2]; }); // [日期,开,收,高,低,量]
+      const highs = arr.map(function(x){ return +x[3]; });
+      const lows = arr.map(function(x){ return +x[4]; });
+      if(closes.length < 21) throw 0;
+      const k = calcK(closes);
+      const h20 = Math.max.apply(null, highs.slice(-20));
+      const l20 = Math.min.apply(null, lows.slice(-20));
+      window["k_" + code] = { trend: k, pos20: h20 > l20 ? (closes[closes.length-1] - l20) / (h20 - l20) * 100 : null };
+    })
+    .catch(function(){ window["k_" + code] = null; });
+}
+
+function render(){
+  const tb = document.querySelector("#tbl tbody");
+  tb.innerHTML = "";
+  document.getElementById("signals").innerHTML = "";
+  let ok = 0, fail = 0, sigCount = 0;
+  LIST.forEach(function(s, i){
+    const raw = window["v_" + s[0]];
+    if(!raw){ fail++; return; }
+    ok++;
+    const f = raw.split("~");
+    const price = +f[3], pct = +f[32], high = +f[33], low = +f[34];
+    const turnover = f[38] === "" ? null : +f[38];
+    const volratio = (+f[49] > 0 && +f[49] < 50) ? +f[49] : null;
+    const dcost = COSTS ? (price - COSTS[i]) / COSTS[i] * 100 : null;
+    const isHold = i < HOLD;
+    const isA = s[0].indexOf("us") !== 0;
+    const cls = pct > 0 ? "up" : pct < 0 ? "dn" : "";
+    const alertCls = (isHold && dcost !== null && dcost <= -15) ? "alert" : "";
+    const K = window["k_" + s[0]];
+    let trendTxt = "—", rsiTxt = "—", posTxt = "—";
+    if(K && K.trend){
+      trendTxt = K.trend.ma5 > K.trend.ma20 ? '<span class="up">多</span>' : '<span class="dn">空</span>';
+      rsiTxt = fmt(K.trend.rsi, 0);
+      if(K.trend.rsi >= 70) rsiTxt = '<span class="up">' + rsiTxt + '</span>';
+      if(K.trend.rsi <= 30) rsiTxt = '<span class="dn">' + rsiTxt + '</span>';
+      if(K.pos20 !== null) posTxt = fmt(K.pos20, 0) + "%";
+    }
+    const tr = document.createElement("tr");
+    if(alertCls) tr.className = alertCls;
+    tr.innerHTML =
+      '<td class="l">' + s[1] + (isHold ? "" : ' <span style="color:#8b949e;font-size:11px">观</span>') + '</td>' +
+      '<td>' + fmt(price) + '</td>' +
+      '<td class="' + cls + '">' + (pct > 0 ? "+" : "") + fmt(pct) + '</td>' +
+      '<td class="' + (dcost !== null && dcost > 0 ? "up" : "dn") + '">' + (isHold && dcost !== null ? ((dcost > 0 ? "+" : "") + fmt(dcost,1)) : "—") + '</td>' +
+      '<td>' + trendTxt + '</td>' +
+      '<td>' + rsiTxt + '</td>' +
+      '<td>' + posTxt + '</td>' +
+      '<td>' + fmt(high) + '/' + fmt(low) + '</td>' +
+      '<td>' + (turnover === null ? "—" : fmt(turnover,2)) + '</td>' +
+      '<td>' + (volratio === null ? "—" : fmt(volratio,2)) + '</td>';
+    tb.appendChild(tr);
+    // ---- 三层信号引擎 ----
+    // 纪律层
+    if(isHold && dcost !== null){
+      if(dcost <= -15){ addSig("crit", s[1] + " 浮亏 " + fmt(dcost,1) + "% ≤ -15%，触发纪律：必须复盘并执行减仓/清仓"); sigCount++; }
+      else if(dcost <= -10){ addSig("warn", s[1] + " 浮亏 " + fmt(dcost,1) + "%，距 -15% 纪律线仅 " + fmt(dcost + 15, 1) + " 个百分点"); sigCount++; }
+    }
+    // 趋势层
+    if(K && K.trend){
+      if(K.trend.crossUp){ addSig("info", s[1] + " MA5 金叉 MA20：趋势转多信号（观察确认，不追）"); sigCount++; }
+      if(K.trend.crossDn){ addSig("info", s[1] + " MA5 死叉 MA20：趋势转空信号（持仓需警惕）"); sigCount++; }
+      if(K.trend.rsi >= 70){ addSig("warn", s[1] + " RSI14=" + fmt(K.trend.rsi,0) + " ≥70：超买区，追高风险大"); sigCount++; }
+      if(K.trend.rsi <= 30){ addSig("info", s[1] + " RSI14=" + fmt(K.trend.rsi,0) + " ≤30：超卖区（可能是观察窗口，不等于买点）"); sigCount++; }
+      if(isHold && price < K.trend.ma20 && K.trend.rsi < 40){
+        addSig("warn", s[1] + " 现价跌破 MA20 且 RSI<40：持仓趋势走弱，复核买入逻辑"); sigCount++;
+      }
+    }
+    // 情绪层
+    if(isA && volratio !== null && volratio > 2 && pct > 5){
+      addSig("info", s[1] + " 量比 " + fmt(volratio,2) + " 且涨 " + fmt(pct) + "%：情绪过热，短线不追"); sigCount++;
+    }
+    if(Math.abs(pct) >= 7){
+      addSig("info", s[1] + " " + (pct > 0 ? "大涨" : "大跌") + fmt(pct) + "%：异动，查消息"); sigCount++;
+    }
+    if(isA && volratio !== null && high > low){
+      const pos = (price - low) / (high - low);
+      if(pos > 0.9 && volratio > 1.5 && pct > 0){ addSig("info", s[1] + " 贴日内最高且放量：强势特征"); sigCount++; }
+      else if(pos < 0.5 && pct > 2){ addSig("info", s[1] + " 从最高回落过半：日内转弱"); sigCount++; }
+    }
+  });
+  if(sigCount === 0){
+    const div = document.createElement("div");
+    div.className = "ok";
+    div.textContent = "✅ 当前无信号：纪律层、趋势层、情绪层全部安静。";
+    document.getElementById("signals").appendChild(div);
+  }
+  const now = new Date();
+  document.getElementById("clock").textContent = now.toLocaleTimeString("zh-CN");
+  document.getElementById("status").textContent = "已更新 " + now.toLocaleTimeString("zh-CN") +
+    "（行情 " + ok + " 成功" + (kdReady ? "，日K已加载" : "，日K加载中…") + "）｜信号 " + sigCount + " 条";
+}
+
+function loadQuotes(){
+  const old = document.getElementById("qs");
+  if(old) old.remove();
+  LIST.forEach(function(s){ delete window["v_" + s[0]]; });
+  const sc = document.createElement("script");
+  sc.id = "qs";
+  sc.charset = "gbk";
+  sc.src = "https://qt.gtimg.cn/q=" + LIST.map(function(s){return s[0];}).join(",");
+  sc.onload = render;
+  sc.onerror = function(){ document.getElementById("status").textContent = "行情网络错误，稍后重试"; };
+  document.body.appendChild(sc);
+}
+function loadKlines(){
+  kdReady = false;
+  Promise.all(LIST.map(function(s){ return loadKline(s[0]); })).then(function(){
+    kdReady = true;
+    render();
+  });
+}
+function loadAll(){ loadKlines(); loadQuotes(); }
+function toggleAuto(){
+  auto = !auto;
+  document.getElementById("autoBtn").textContent = "自动刷新：" + (auto ? "开（60秒）" : "关");
+  clearInterval(timer);
+  if(auto){ timer = setInterval(loadAll, 60000); }
+}
+if(COSTS){ loadAll(); }
+else {
+  document.getElementById("status").innerHTML = '未检测到成本设置 —— 请先打开 <a href="./index.html" style="color:#1f6feb">行情简报页</a> 完成一次性设置（成本存本机，两页共用）。';
+}
+timer = setInterval(function(){ if(auto && COSTS) loadAll(); }, 60000);
+</script>
+</body>
+</html>
