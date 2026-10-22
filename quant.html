@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.14</title>
+<title>信号监控 v7.15</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.14</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.15</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,7 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.15 容错热修（2026-10-22 晚）</b>：修复"整页识别不到数据"——v7.12 起报价链要求腾讯全量对账，但腾讯一步无失败保护：美股开盘时段（21:30 北京）腾讯接口抖动会拖死整条链、render 永不执行。现每批次独立容错：腾讯挂了东财数据照常渲染、本批全灭仅跳过（下轮自动重试），任何单点故障不再导致白屏。<br>
   <b>v7.14 美股盘前支持（2026-10-22 晚）</b>：实测腾讯美股报价不含盘前（时间戳停在常规收盘16:00），东财美股报价含盘前最新成交——报价优先级改为东财优先、腾讯兜底，保留偏差>15%脏数据防线；盘前时段（北京 17:00-21:30 夏令时）卡片显示的是盘前实时价，技术位（支撑/压力/止损）与K线收盘价的偏差属正常现象，开盘后会收敛。<br>
   <b>v7.13 重点前置（2026-10-22 晚）</b>：①机会与持仓区卡片按"可操作性"排序——可动手的（现价在买入区/超跌触发/持仓破位纪律动作）永远在最前，其次持仓压力区止盈/拿稳，再次观望级；②表格只分 A股/美股 两组，组内同规则排序且涨幅高的（反弹的）排前面——打开页面第一屏就是"今天最可能需要操作的标的"，不再有重点混乱。<br>
   <b>v7.12 双源校验（2026-10-22 晚）</b>：①报价双源校验——东财与腾讯偏差>15%（且>0.5元）自动采信腾讯并在状态栏显示"校验修正N"（单源脏数据防线，DRAM标度异常即此类）；②美股K线第四兜底源：新浪美股日线（script标签直读，今日实测对DRAM返回完整历史）。<br>
@@ -206,9 +207,9 @@ function loadQuotes(){
             }
           });
           SRC.q = nEM === 0 ? "腾讯" : (nFix ? "东财·校验修正" + nFix : "东财");
-        });
+        }).catch(function(){ /* v7.15：腾讯挂了不拖死全链——东财数据已写入quotes，照常渲染 */ });
       }).then(function(){ return new Promise(function(r){ setTimeout(r, 150); }); });
-    });
+    }).catch(function(){ /* v7.15：本批双源皆败仅跳过该批，下轮TTL自动重试，全页不再白屏 */ });
   });
   return chain;
 }
