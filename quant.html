@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.0</title>
+<title>信号监控 v7.1</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.0</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.1</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,7 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.1 数据源切换（2026-10-22）</b>：行情/K线主源切东方财富统一接口——K线 push2his（日K 320根·2026-10-22 实测连通）、报价 ulist（40只/批），全部走 JSONP script 标签跨域（不依赖对方 CORS 放行）；secid 规则：沪1./深0./美股105./全球指数100.（美股指数温度计口径映射：IXIC→NDX、INX→SPX、DJI→DJIA）；腾讯（qt.gtimg.cn/ifzq）自动降级为兜底链，状态栏实时显示当前行情源/K线源。信号评分体系原样保留。<br>
   <b>v7.0 架构重构</b>：数据层整体换成测试版实证的腾讯系fetch直连（fetch+GBK解码报价、web.ifzq.gtimg.cn K线主源320根、内存5分钟TTL缓存、5 worker限速），无script标签/无东财/无localStorage K线缓存；信号评分体系（七维100分/六阶段/超跌通道/一票否决/板块联动）原样保留。<br>
   <b>技术评分（v5.1·100分制·纯量价指标）</b>：成长型=均线(17)+MACD(17)+20日位置(25)+RSI(8)+KDJ(8)+量能(17)+支撑距离(8)（价值/周期型权重见代码WP表，各自合计100）；超跌反转触发+20、企稳+12、放量创20日新高+5。<b>事件分已移除</b>：事件信息看上方"重要事件"区，主观判断在晨报/晚报。<br>
   <b>分级</b>：≥90 🔥交易候选｜80-89 ⭐重点关注（自动入选上方分析区）｜60-79 观察｜<60 弱势。每5分钟重算，动态进出。<br>
@@ -93,7 +94,6 @@
   v6.4：事件层重写——双直连源+本地news.json自动化钩子+📥手动粘贴兜底区（CORS拦截时复制金十App快讯粘贴即可）；能打开网站≠网页能抓取（跨域安全策略）。<br>
   📅重要事件区：东财快讯+金十日历双权威源并行抓取；🔴重要新闻与⭐自选相关词自动置顶，风险类关键词自动生成红色预警；盘中异动（涨跌±5%、振幅>8%、量比>3）由页面自动检测；同板块≥3只齐发同类信号自动合并为板块联动一条。本页为技术面参考，不构成交易建议；成本与纪律分析见晨报/晚报。
 </div>
-<script src="./list.js">
 <script src="./list.js"></script>
 <script>
 // ===== 思路致谢（仅借鉴方法论，本文件全部代码原创，未复制任何项目代码）=====
@@ -119,11 +119,39 @@ let auto = true, timer = null, doDiff = false, MACRO_ON = false, BENCH_RET20 = n
 let SCAN_META = {stats: ""};
 function fmt(n, d){ if(!isFinite(n)) return "—"; return (+n).toFixed(d === undefined ? 2 : d); }
 
-// ===== 数据层（v7.0架构重构：全部采用测试版实证的腾讯系fetch直连——无script标签、无东财、无localStorage K线缓存） =====
+// ===== 数据层 v7.1：东方财富主源（JSONP script标签跨域·不依赖CORS）→ 腾讯自动降级 =====
+// 选型 2026-10-22：东财 push2his(K线320根,实测连通)+push2 ulist(批量报价)；统一secid：沪1./深0./美股105./全球指数100.
 let quotes = {};      // code -> {price,pct,high,low,volratio,turn,vol,amt}
 let KMAP = {};        // code -> calcAll结果
 let kLast = {};       // code -> K线加载时间戳（内存TTL缓存，轻量可靠）
 const K_TTL = 5 * 60e3;
+const SRC = {q: "东财", k: "东财"};
+function emSecid(c){
+  if(c.indexOf("us") === 0){
+    const s = c.slice(2);
+    if(s === "IXIC") return "100.NDX";   // 温度计口径：纳指综合→东财纳指100映射
+    if(s === "INX") return "100.SPX";
+    if(s === "DJI") return "100.DJIA";
+    return "105." + s;
+  }
+  if(c.slice(0,2) === "sh") return "1." + c.slice(2);
+  if(c.slice(0,2) === "sz") return "0." + c.slice(2);
+  return c;
+}
+let __jpN = 0;
+function fetchJSONP(url, ms){
+  return new Promise(function(res, rej){
+    const cb = "__emjp" + (__jpN++);
+    const s = document.createElement("script");
+    let done = false;
+    const t = setTimeout(function(){ if(done) return; done = true; clean(); rej(new Error("jsonp timeout")); }, ms || 9000);
+    function clean(){ clearTimeout(t); try{ delete window[cb]; }catch(e){ window[cb] = undefined; } if(s.parentNode) s.parentNode.removeChild(s); }
+    window[cb] = function(j){ if(done) return; done = true; clean(); res(j); };
+    s.onerror = function(){ if(done) return; done = true; clean(); rej(new Error("jsonp error")); };
+    s.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "cb=" + cb;
+    document.head.appendChild(s);
+  });
+}
 function fetchGBK(url){
   return fetch(url, {cache: "no-store"}).then(function(r){
     if(!r.ok) throw new Error("HTTP " + r.status);
@@ -143,30 +171,51 @@ function fetchJSON(url, ms){
 }
 const fetchTO = fetchJSON;
 function loadQuotes(){
-  const BATCH = 40;
+  const codes = LIST.map(function(s){ return s[0]; });
+  const groups = [];
+  for(let i = 0; i < codes.length; i += 40) groups.push(codes.slice(i, i + 40));
   let chain = Promise.resolve();
-  for(let i = 0; i < LIST.length; i += BATCH){
-    (function(cs){
-      chain = chain.then(function(){
-        return fetchGBK("https://qt.gtimg.cn/q=" + cs.join(",") + "&_=" + Date.now()).then(function(txt){
-          const re = /v_([a-z]{2}[0-9A-Za-z.]+)="([^"]*)"/g; let m;
-          while((m = re.exec(txt))){
-            const f = m[2].split("~");
-            const num = function(v){ const n = parseFloat(v); return isFinite(n) ? n : null; };
-            const price = num(f[3]), pre = num(f[4]);
-            quotes[m[1]] = {
-              price: price,
-              pct: (price != null && pre) ? (price - pre) / pre * 100 : null,
-              high: num(f[33]), low: num(f[34]),
-              vol: num(f[36]), amt: num(f[37]), turn: num(f[38]),
-              volratio: (num(f[49]) > 0 && num(f[49]) < 50) ? num(f[49]) : null
-            };
-          }
-        });
+  groups.forEach(function(cs){
+    chain = chain.then(function(){
+      return loadQuotesEM(cs).then(function(n){
+        if(!n){ SRC.q = "腾讯"; return loadQuotesTX(cs); }
       }).then(function(){ return new Promise(function(r){ setTimeout(r, 150); }); });
-    })(LIST.slice(i, i + BATCH).map(function(s){ return s[0]; }));
-  }
+    });
+  });
   return chain;
+}
+function loadQuotesEM(cs){
+  const u = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f12,f2,f3,f15,f16,f5,f6,f8,f10&secids=" + cs.map(emSecid).join(",");
+  return fetchJSONP(u, 8000).then(function(j){
+    const arr = j && j.data && j.data.diff;
+    if(!arr || !arr.length) return 0;
+    let n = 0;
+    for(let i = 0; i < arr.length && i < cs.length; i++){
+      const d = arr[i];
+      const price = +d.f2, pct = +d.f3;
+      if(!isFinite(price) || price <= 0) continue;
+      quotes[cs[i]] = { price: price, pct: isFinite(pct) ? pct : null,
+        high: +d.f15 || null, low: +d.f16 || null,
+        vol: +d.f5 || null, amt: +d.f6 || null, turn: +d.f8 || null,
+        volratio: (isFinite(+d.f10) && d.f10 > 0 && d.f10 < 50) ? +d.f10 : null };
+      n++;
+    }
+    return n;
+  });
+}
+function loadQuotesTX(cs){
+  return fetchGBK("https://qt.gtimg.cn/q=" + cs.join(",") + "&_=" + Date.now()).then(function(txt){
+    const re = /v_([a-z]{2}[0-9A-Za-z.]+)="([^"]*)"/g; let m;
+    while((m = re.exec(txt))){
+      const f = m[2].split("~");
+      const num = function(v){ const n = parseFloat(v); return isFinite(n) ? n : null; };
+      const price = num(f[3]), pre = num(f[4]);
+      quotes[m[1]] = { price: price,
+        pct: (price != null && pre) ? (price - pre) / pre * 100 : null,
+        high: num(f[33]), low: num(f[34]), vol: num(f[36]), amt: num(f[37]), turn: num(f[38]),
+        volratio: (num(f[49]) > 0 && num(f[49]) < 50) ? num(f[49]) : null };
+    }
+  });
 }
 function setK(code, bars){
   if(!bars || bars.length < 30){ KMAP[code] = null; return; }
@@ -188,29 +237,8 @@ function loadKlines(force){
     const steps = [];
     while(idx < need.length){
       (function(c){
-        steps.push((function(){
-          const tq = c.indexOf("us") === 0 ? c + ".OQ" : c;
-          return fetchJSON("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now(), 9000)
-            .then(function(j){
-              const d = (j && j.data && (j.data[tq] || j.data[c])) || {};
-              const arr = d.qfqday || d.day || [];
-              let bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
-              if(!bars.length && c !== tq){
-                return fetchJSON("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + c + ",day,,,320,qfq&_=" + Date.now(), 9000)
-                  .then(function(j2){
-                    const d2 = (j2 && j2.data && (j2.data[c] || j2.data[tq])) || {};
-                    const arr2 = d2.qfqday || d2.day || [];
-                    bars = arr2.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
-                    if(!bars.length) return;
-                    kLast[c] = now; setK(c, bars);
-                  });
-              }
-              if(!bars.length) return;
-              kLast[c] = now; setK(c, bars);
-            })
-            .catch(function(){ /* 保留旧数据，下次TTL到了再试 */ })
-            .then(function(){ return new Promise(function(r){ setTimeout(r, 120); }); });
-        })());
+        steps.push(loadKEM(c, now).catch(function(){ SRC.k = "腾讯"; return loadKTX(c, now); }).catch(function(){ /* 保留旧数据 */ })
+          .then(function(){ return new Promise(function(r){ setTimeout(r, 120); }); }));
       })(need[idx++]);
     }
     return Promise.all(steps);
@@ -219,7 +247,34 @@ function loadKlines(force){
   for(let w = 0; w < 5; w++) ws.push(worker());
   return Promise.all(ws);
 }
-
+function loadKEM(c, now){
+  const u = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + emSecid(c) + "&klt=101&fqt=1&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56&beg=0&end=20500101&lmt=320";
+  return fetchJSONP(u, 9000).then(function(j){
+    const kl = j && j.data && j.data.klines;
+    if(!kl || kl.length < 30) throw new Error("no kline");
+    const bars = kl.map(function(s){ const a = s.split(","); return [ +a[1], +a[2], +a[3], +a[4], +a[5] ]; });
+    kLast[c] = now; setK(c, bars);
+  });
+}
+function loadKTX(c, now){
+  const tq = c.indexOf("us") === 0 ? c + ".OQ" : c;
+  return fetchJSON("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now(), 9000).then(function(j){
+    const d = (j && j.data && (j.data[tq] || j.data[c])) || {};
+    const arr = d.qfqday || d.day || [];
+    let bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
+    if(!bars.length && c !== tq){
+      return fetchJSON("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + c + ",day,,,320,qfq&_=" + Date.now(), 9000).then(function(j2){
+        const d2 = (j2 && j2.data && (j2.data[c] || j2.data[tq])) || {};
+        const arr2 = d2.qfqday || d2.day || [];
+        bars = arr2.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
+        if(!bars.length) return;
+        kLast[c] = now; setK(c, bars);
+      });
+    }
+    if(!bars.length) return;
+    kLast[c] = now; setK(c, bars);
+  });
+}
 // ---------- 指标计算与评分（v5.1体系原样保留） ----------
 function calcAll(closes, highs, lows, opens, vols){
   const n = closes.length;
@@ -637,7 +692,7 @@ function render(){
   document.getElementById("status").textContent = "已更新 " + now.toLocaleTimeString("zh-CN") +
     "｜行情" + ok + "成功/" + fail + "失败｜指标" + kN + "/" + LIST.length +
     "｜K线" + (kAge === null ? "未加载" : kAge + "分钟前") +
-    "｜事件源：" + (EV_FEED.src || "加载中…");
+    "｜行情源" + SRC.q + "·K线源" + SRC.k + "｜事件源：" + (EV_FEED.src || "加载中…");
 }
 
 function renderSignals(){
