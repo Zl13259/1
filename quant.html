@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.19</title>
+<title>信号监控 v7.20</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.19</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.20</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,7 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.20 主源熔断（2026-10-23 晨，依据真机故障）</b>：东财行情接口（push2/push2his）早间维护时段故障时，旧版每只K线须等东财超时12秒才轮到腾讯兜底（84只×3并发≈5-6分钟），60秒自动刷新又把未完成的重新入队、请求堆积——兜底被超时队列堵死，表现为"抓不到数据"。修复：报价层一批东财失败即熔断后续批次、K线层连挂3只即熔断本轮剩余，失败立即切腾讯。正常时段零影响（东财成功不触发熔断）。<br>
   <b>v7.19 结论层趋势闸门（2026-10-23 晨，依据用户质询）</b>：下跌趋势（六阶段=下跌通道/深跌区）且纯技术分<60的非持仓标的，"✅回踩买点"降级为橙色⚠️"支撑测试区·非买点"——买入区逻辑本身成立（左侧回踩强支撑），但下跌趋势中支撑多为纸支撑，且"—弱势—33分"与"✅买点"同卡矛盾、绿色✅视觉权重大于灰色警示，易误导操作。分值与环境门机制零改动。昨夜实例：Meta 40分/INTC 33分/NVDA 33分（均下跌通道）改显⚠️，特斯拉75分（震荡）维持✅。<b>遗留待验：昨晚纳指-2.6%但页面环境门疑似未开（可能IXIC六阶段被判"震荡"、均线未完全空头）——请用户看一眼表格里纳斯达克行的六阶段列，确认后再定环境门是否加宽。</b><br>
   <b>v7.18 死链修复+精简（2026-10-22 夜，全文件自查）</b>：①<b>修复事件降级链隐藏bug</b>——fetchJSON本就返回解析后JSON，runEvChain却又调一次.json()，导致金十日历源和news.json钩子从上线起就永远失败（异常被catch吞掉，表象被误读为"CORS拦截"）。修复后降级链真正可用，未来GitHub Actions生成news.json即插即用；②事件链去重——catch链里的东财快讯JSONP与EV_SOURCES[0]完全同URL同解析，删重复实现；③quotes对象的turn/amt/vol三字段只写不读，删除；④历史版本说明（v6.4~v7.16）折叠归档，规则文档保持展开；⑤微简化：KSET一行化、renderScan去多余replace（sigmeta每次render前已重置）、s.make()两次调用改一次。<b>打分与判定逻辑零改动，行为不变。</b><br>
   <b>v7.17 K线防线补强+放量判定修正（2026-10-22 夜，依据数据复核）</b>：①v7.16的"末根收盘vs实时报价"校验拦不住"末根对、中间断"的拼接脏数据（DRAM事故：源序列拼接2016→2026，末根≈现价但20日+1254%算出87分假信号）——现K线统一过kSanity：最新bar过期超25天/相邻跳空超30天（取最后连续段）/单日±100%/20日±150%任一即整组作废，东财/腾讯K线末根保留日期供校验；②超跌反转"放量阳线"触发条件弃用报价量比（盘中瞬时峰值收盘后残留），改用K线5日均量自算——2026-10-22通富微电缩量日误触发阶段③即此因。<b>遗留观察：一票否决的volratio>1.8同病，方向为从严暂不改动，若再发现否决误触发再修。</b><br>
@@ -196,9 +197,10 @@ function loadQuotes(){
   const groups = [];
   for(let i = 0; i < codes.length; i += 40) groups.push(codes.slice(i, i + 40));
   let chain = Promise.resolve();
+  let emQFail = 0;   // v7.20 主源熔断：一批东财失败即熔断后续批次的东财尝试（每次loadQuotes自动重置），防东财故障时段8s超时×N批拖死行情加载
   groups.forEach(function(cs){
     chain = chain.then(function(){
-      return loadQuotesEM(cs).then(function(){
+      return (emQFail >= 1 ? Promise.reject(new Error("em fused")) : loadQuotesEM(cs)).then(function(){
         // v7.12 双源校验：东财与腾讯偏差>15%（且>0.5元）时采信腾讯并计数——防单源脏数据（如DRAM标度异常）
         return loadQuotesTX(cs).then(function(txGot){
           // v7.14：东财优先（美股盘前最新价只在东财侧），腾讯为基准兜底+脏数据防线
@@ -214,7 +216,7 @@ function loadQuotes(){
             }
           });
           SRC.q = nEM === 0 ? "腾讯" : (nFix ? "东财·校验修正" + nFix : "东财");
-        }).catch(function(){ /* v7.15：腾讯挂了不拖死全链——东财数据已写入quotes，照常渲染 */ });
+        }).catch(function(){ emQFail++; /* v7.20：计入熔断；v7.15：腾讯挂了不拖死全链——东财数据已写入quotes，照常渲染 */ });
       }).then(function(){ return new Promise(function(r){ setTimeout(r, 150); }); });
     }).catch(function(){ /* v7.15：本批双源皆败仅跳过该批，下轮TTL自动重试，全页不再白屏 */ });
   });
@@ -306,11 +308,12 @@ function loadKlines(force){
     return force || !kLast[c] || (now - kLast[c]) > K_TTL;
   });
   let idx = 0;
+  let emFail = 0;   // v7.20 主源熔断：东财K线连挂≥3次，本轮剩余直接走腾讯——防东财故障/维护时段12s超时×N只把兜底请求堵死在队列（2026-10-23晨实测东财push2维护、用户端"抓不到数据"根因）
   function worker(){
     const steps = [];
     while(idx < need.length){
       (function(c){
-        steps.push(loadKEM(c, now).catch(function(){ SRC.k = "腾讯"; return loadKTX(c, now); }).catch(function(){ return loadKSINA(c, now); }).catch(function(){ /* 保留旧数据 */ })
+        steps.push((emFail >= 3 ? Promise.reject(new Error("em fused")) : loadKEM(c, now)).catch(function(){ emFail++; SRC.k = "腾讯"; return loadKTX(c, now); }).catch(function(){ return loadKSINA(c, now); }).catch(function(){ /* 保留旧数据 */ })
           .then(function(){ return new Promise(function(r){ setTimeout(r, 250); }); }));
       })(need[idx++]);
     }
@@ -327,7 +330,7 @@ function loadKlines(force){
       const steps = [];
       while(i2 < miss2.length){
         (function(c){
-          steps.push(loadKEM(c, now).catch(function(){ return loadKTX(c, now); }).catch(function(){ return loadKSINA(c, now); }).catch(function(){})
+          steps.push((emFail >= 3 ? Promise.reject(new Error("em fused")) : loadKEM(c, now)).catch(function(){ emFail++; return loadKTX(c, now); }).catch(function(){ return loadKSINA(c, now); }).catch(function(){})
             .then(function(){ return new Promise(function(r){ setTimeout(r, 300); }); }));
         })(miss2[i2++]);
       }
