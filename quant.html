@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.10</title>
+<title>信号监控 v7.11</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.10</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.11</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,7 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.11 环境门豁免（2026-10-22）</b>：环境门不再一刀切——①<b>超跌反转触发（阶段③）</b>豁免（左侧底部信号本来就是为弱市设计的，冻结它=机制自相矛盾）；②<b>强势回踩</b>豁免（池内20日强度前20% 且 现价站上MA60 = 业绩/资金双强的真强势股）。豁免标显示浅蓝"环境豁免"标签，信号区提示豁免数量；其余标的仍-20封顶79。注意：豁免只恢复"可见性"，新开仓仓位纪律仍建议减半，且账本级纪律（证伪线/止损线）永远高于页面结论。<br>
   <b>v7.10 修复（2026-10-22 午后，依据真机截图）</b>：①修复表格整体空白——v7.8 的📌开关引用了 renderCards 内部变量 pinAll，表格行在 render() 中执行时越界抛异常致整张表空白；钉住清单已提升为全局函数 getPins()，两处共用；②美股K线三源兜底（ifzq.OQ→ifzq原码→proxy.finance.qq.com 镜像）+ 超时放宽至12s——修复 NVDA/DRAM"技术分析数据加载中"。<br>
   <b>v7.9 事件源修复（2026-10-22）</b>：重要事件区新增主源——东财官网搜索 JSONP（其自身前端公开接口，每轮 1 次低频请求，关键词按自选板块轮换：存储/半导体/AI/美联储/锂电池/稀土/黄金/芯片/央行/关税，事件区顶部显示当前关键词）；降级链：搜索JSONP→快讯JSONP→fetch链+news.json→手动粘贴区。<br>
   <b>v7.8 自定义钉住（2026-10-22）</b>：下方列表每行行首 📌 可点击——钉住/取消任意标的到上方机会与持仓区，<b>保存在浏览器本地（localStorage），不进仓库、不上传、换设备不携带</b>，与隐私安全条款一致；6 只默认钉住仍可随时取消（取消只影响显示，下次更新默认可再议）。<br>
@@ -581,7 +582,7 @@ function verdictLine(r){
   const sellHi = K2.res1 ? Math.max(K2.res1, K2.res2 || K2.res1) : null;
   let txt = "", col = "#ff9f0a";
   if(r.veto){ txt = "🚫 否决生效：禁止买入，只执行卖出/止损纪律"; col = "#ff453a"; }
-  else if(r.envGate && !isHold(r.code)){ txt = "⏸ 环境门压制（大盘深跌/下跌通道）：冻结新开仓，只观察不动手"; }
+  else if(r.envGate === true && !isHold(r.code)){ txt = "⏸ 环境门压制（大盘深跌/下跌通道）：冻结新开仓，只观察不动手"; }
   else if(stop && r.price < stop){ txt = "⚠️ 现价已跌破止损参考 " + fmt(stop) + "：纪律性离场，不接手"; col = "#ff453a"; }
   else if(r.rev === 3){ txt = "🔵 超跌反转触发：可小仓试探，止损=" + fmt(K2.ll20 - K2.atr) + "（前低-1×ATR），目标压力 " + (sellLo ? fmt(sellLo) + "~" + fmt(sellHi) : "—"); col = "#64d2ee"; }
   else if(isHold(r.code)){
@@ -734,11 +735,16 @@ function render(){
     if(isHold(r.code) || r.thermo || r.total === null) return;
     if(r.code === "sh000001" || r.code === "sz399006" || r.code === "usIXIC" || r.code === "usINX" || r.code === "usDJI") return;
     if(r.isA ? gateA : gateU){
-      r.envGate = true;
-      r.total = Math.min(79, Math.max(0, r.total - 20));
-      r.grade = gradeOf(r.total);
+      // v7.11 豁免：①超跌反转触发（阶段③=左侧底部信号，本来就是为弱市设计的）②强势回踩（池内强度前20%且个股趋势未破=业绩/资金双强的真强势股）
+      const exempt = (r.rev === 3) || (r.rs !== null && r.rs >= 80 && r.K && r.K.ma60 && r.price > r.K.ma60);
+      if(exempt){ r.envGate = "exempt"; }
+      else { r.envGate = true; r.total = Math.min(79, Math.max(0, r.total - 20)); r.grade = gradeOf(r.total); }
     }
   });
+  if(gateA || gateU){
+    const exN = rows.filter(function(r){ return r.envGate === "exempt"; }).length;
+    if(exN) addSig("warn", "大盘环境", "环境门开启中，" + exN + " 只因超跌反转触发/强势回踩（RS≥80+站上MA60）被豁免——底部信号可见可跟踪，但新开仓仓位仍建议减半");
+  }
   if(gateA) addSig("warn", "大盘环境", "上证指数=深跌/下跌通道：A股非持仓标的总分-20（环境门）——银行/电力类高分是抗跌拥挤的反映，读作风险信号而非买点");
   if(gateU) addSig("warn", "大盘环境", "纳斯达克=深跌/下跌通道：美股非持仓标的总分-20（环境门）——高分≠买点，等阶段切换");
   // v5.2：RS池内评级（20日涨幅百分位）+ 池内市场宽度温度计
@@ -780,7 +786,7 @@ function render(){
         '<td>' + (r.tech !== null ? r.tech : "—") + '</td>' +
         '<td>' + (r.rev === 3 ? "+20触发" : r.rev === 2 ? "+12企稳" : r.rev === 1 ? "①超跌" : r.bonus ? "+5突破" : "—") + '</td>' +
         '<td><b>' + (r.total !== null ? r.total : "—") + '</b></td>' +
-        '<td>' + (r.veto ? '🚫 ' : '') + (r.grade ? '<span style="font-size:12px;color:' + (r.total >= 90 ? '#30d158' : r.total >= 80 ? '#0a84ff' : '#98989d') + '">' + r.grade[0] + '</span>' : "—") + (r.envGate ? ' <span style="font-size:11px;color:#ff9f0a">环境-20</span>' : '') + (r.stage ? '<div style="font-size:11px;color:#98989d">' + r.stage.name + '</div>' : '') + '</td>' +
+        '<td>' + (r.veto ? '🚫 ' : '') + (r.grade ? '<span style="font-size:12px;color:' + (r.total >= 90 ? '#30d158' : r.total >= 80 ? '#0a84ff' : '#98989d') + '">' + r.grade[0] + '</span>' : "—") + (r.envGate === true ? ' <span style="font-size:11px;color:#ff9f0a">环境-20</span>' : (r.envGate === "exempt" ? ' <span style="font-size:11px;color:#64d2ee">环境豁免</span>' : '')) + (r.stage ? '<div style="font-size:11px;color:#98989d">' + r.stage.name + '</div>' : '') + '</td>' +
         '<td>' + (K2 ? fmt(K2.rsi,0) + (K2.rsi >= 70 ? '<span class="up">▲</span>' : K2.rsi <= 30 ? '<span class="dn">▼</span>' : '') : "—") + '</td>' +
         '<td>' + (K2 && K2.pos52 !== null ? fmt(K2.pos52,0) + "%" : "—") + '</td>';
       tb.appendChild(tr);
