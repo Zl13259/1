@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.3</title>
+<title>信号监控 v7.8</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.3</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.8</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,11 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.8 自定义钉住（2026-10-22）</b>：下方列表每行行首 📌 可点击——钉住/取消任意标的到上方机会与持仓区，<b>保存在浏览器本地（localStorage），不进仓库、不上传、换设备不携带</b>，与隐私安全条款一致；6 只默认钉住仍可随时取消（取消只影响显示，下次更新默认可再议）。<br>
+  <b>v7.7 钉住扩展（2026-10-22）</b>：DRAM/NVDA/INTC/Meta 加入固定钉住，与亿纬/瑞芯微共 6 只核心跟踪标常驻机会与持仓区。钉住≠推荐，全部判定照常生效。<br>
+  <b>v7.6 固定钉住（2026-10-22）</b>：亿纬锂能/瑞芯微钉入机会与持仓区常驻显示（📌固定标记）——持仓清单隐私下线后的替代方案：页面不再知道你的持仓，但这两只核心跟踪标的永远在场。<b>钉住≠推荐，解读与结论行照常如实显示（该否决就否决、该破位就破位）。</b><br>
+  <b>v7.5 人话解读层（2026-10-22）</b>：重点股票卡片新增两行——🗣 指标解读（趋势/位置/动能/相对强弱/超跌通道自动翻译成大白话）＋ ⚖️ 交易结论（否决>环境门>破位>超跌触发>持仓>价格位置 六级优先级判定，给出买/卖/观望＋具体交易区间＋止损位）。<b>结论由规则生成，是纪律的执行器不是行情的预言家——它与你的账本纪律冲突时，以账本为准。</b><br>
+  <b>v7.4 热修（2026-10-22 午后，依据真机截图）</b>：①东财报价改 f13+f12 代码反查映射——东财返回顺序与请求不一致，旧版按位置对位导致价格张冠李戴（农行显示140.59即此因）；②环境门扩展：深跌·底部区（阶段1）+下跌通道（阶段6）都触发——旧版上证在底部区时门误显示"关"，导致长江电力类防御股85分无压制进机会区；③K线加载降速（5→3并发、间隔120→250ms、超时9→12s）+ 周期末自动补抓缺失标的——修复"指标45/83"式半空白；④K线源标记成功时回置"东财"。<br>
   <b>v7.3 热修（2026-10-22 上午）</b>：①报价部分标的缺失→东财缺哪只腾讯补哪只（不再整批放弃）；②温度计龙头（茅台/美的/平安/海油/神华/迈瑞/东财/比亚迪）不再显示⭐徽章与"重点关注"等级，只显示"·温度计·"；③反转·突破列显示①超跌态（此前仅显示②③，空白易误解）；④重要事件区东财快讯改 JSONP 直连——此前抓不到的根因是 fetch 被 CORS 拦截；⑤list.js 引用加版本号参数，防浏览器缓存旧文件（旧文件里还有持仓信息）。<br>
   <b>v7.2 打分语义与板块细分（2026-10-22）</b>：①<b>大盘环境门</b>——上证/纳指六阶段=下跌通道时，非持仓标的总分-20并封顶79（高分只代表抗跌，不代表买点；持仓止损纪律不受影响，指数行本身豁免）；②<b>纠正"分高=该买"</b>——总分语义改为"买点质量"：bank/defensive（深度价值/类债）20日高位且52周高位=拥挤，位置分自动降权——趋势强度请看六阶段与M模板，勿与买点质量混读；③<b>板块打分细分</b>——新增 bank（银行/金融：支撑/均值回归权重36最高，天量=出货警讯）与 defensive（类债公用/红利：健康区间30-70满分，高位惩罚）两套权重，与 growth/value/cyclical 并列，由 list.js 的 PROFILE_OF 指派。银行/电力弱势市里"集体高分"读作拥挤信号，不是买入信号。<br>
   <b>v7.1 数据源切换（2026-10-22）</b>：行情/K线主源切东方财富统一接口——K线 push2his（日K 320根·2026-10-22 实测连通）、报价 ulist（40只/批），全部走 JSONP script 标签跨域（不依赖对方 CORS 放行）；secid 规则：沪1./深0./美股105./全球指数100.（美股指数温度计口径映射：IXIC→NDX、INX→SPX、DJI→DJIA）；腾讯（qt.gtimg.cn/ifzq）自动降级为兜底链，状态栏实时显示当前行情源/K线源。信号评分体系原样保留。<br>
@@ -188,21 +193,27 @@ function loadQuotes(){
   return chain;
 }
 function loadQuotesEM(cs){
-  const u = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f12,f2,f3,f15,f16,f5,f6,f8,f10&secids=" + cs.map(emSecid).join(",");
+  // v7.4：按 f13(市场)+f12(代码) 反查映射——东财返回顺序与请求顺序不保证一致，按位置对位会张冠李戴
+  const u = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f13,f12,f2,f3,f15,f16,f5,f6,f8,f10&secids=" + cs.map(emSecid).join(",");
+  const lut = {};
+  cs.forEach(function(c){ lut[emSecid(c)] = c; });
   return fetchJSONP(u, 8000).then(function(j){
     const arr = j && j.data && j.data.diff;
     if(!arr || !arr.length) return cs.slice();
     SRC.q = "东财";
-    const missing = [];
-    for(let i = 0; i < cs.length; i++){
-      const d = arr[i];
-      const price = d ? +d.f2 : NaN, pct = d ? +d.f3 : NaN;
-      if(!isFinite(price) || price <= 0){ missing.push(cs[i]); continue; }
-      quotes[cs[i]] = { price: price, pct: isFinite(pct) ? pct : null,
+    const got = {};
+    (Array.isArray(arr) ? arr : [arr]).forEach(function(d){
+      const code = lut[d.f13 + "." + d.f12];
+      if(!code) return;
+      const price = +d.f2, pct = +d.f3;
+      if(!isFinite(price) || price <= 0) return;
+      got[code] = { price: price, pct: isFinite(pct) ? pct : null,
         high: d.f15 ? +d.f15 : null, low: d.f16 ? +d.f16 : null,
         vol: d.f5 ? +d.f5 : null, amt: d.f6 ? +d.f6 : null, turn: d.f8 ? +d.f8 : null,
         volratio: (isFinite(+d.f10) && d.f10 > 0 && d.f10 < 50) ? +d.f10 : null };
-    }
+    });
+    const missing = [];
+    cs.forEach(function(c){ if(got[c]) quotes[c] = got[c]; else missing.push(c); });
     return missing;
   }, function(){ return cs.slice(); });
 }
@@ -241,20 +252,39 @@ function loadKlines(force){
     while(idx < need.length){
       (function(c){
         steps.push(loadKEM(c, now).catch(function(){ SRC.k = "腾讯"; return loadKTX(c, now); }).catch(function(){ /* 保留旧数据 */ })
-          .then(function(){ return new Promise(function(r){ setTimeout(r, 120); }); }));
+          .then(function(){ return new Promise(function(r){ setTimeout(r, 250); }); }));
       })(need[idx++]);
     }
     return Promise.all(steps);
   }
   const ws = [];
-  for(let w = 0; w < 5; w++) ws.push(worker());
-  return Promise.all(ws);
+  for(let w = 0; w < 3; w++) ws.push(worker());   // v7.4：5→3并发，防腾讯限流导致半数K线空白
+  return Promise.all(ws).then(function(){
+    // v7.4：周期末补抓一轮本周期仍缺失的（慢速单发），减少"指标45/83"式半空白
+    const miss2 = need.filter(function(c){ return !KMAP[c]; });
+    if(!miss2.length) return;
+    let i2 = 0;
+    function slow(){
+      const steps = [];
+      while(i2 < miss2.length){
+        (function(c){
+          steps.push(loadKEM(c, now).catch(function(){ return loadKTX(c, now); }).catch(function(){})
+            .then(function(){ return new Promise(function(r){ setTimeout(r, 300); }); }));
+        })(miss2[i2++]);
+      }
+      return Promise.all(steps);
+    }
+    const s2 = [];
+    for(let w = 0; w < 2; w++) s2.push(slow());
+    return Promise.all(s2);
+  });
 }
 function loadKEM(c, now){
   const u = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + emSecid(c) + "&klt=101&fqt=1&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56&beg=0&end=20500101&lmt=320";
-  return fetchJSONP(u, 9000).then(function(j){
+  return fetchJSONP(u, 12000).then(function(j){
     const kl = j && j.data && j.data.klines;
     if(!kl || kl.length < 30) throw new Error("no kline");
+    SRC.k = "东财";
     const bars = kl.map(function(s){ const a = s.split(","); return [ +a[1], +a[2], +a[3], +a[4], +a[5] ]; });
     kLast[c] = now; setK(c, bars);
   });
@@ -498,11 +528,76 @@ let EV_FEED = {items: [], src: null, at: null, alerts: [], macro: false};
 function addSig(sev, stk, text, code){ SIGS.push({sev: sev, stk: stk, text: text, code: code || "", rank: sev === "crit" ? 0 : sev === "warn" ? 1 : 2}); }
 
 // ---------- 渲染 ----------
+// v7.8 用户自定义钉住：localStorage 本地保存，不进仓库不上传（与隐私条款一致）
+function loadPins(){
+  try{ const a = JSON.parse(localStorage.getItem("q_pinned_v1") || "[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; }
+}
+function togglePin(code){
+  const p = loadPins();
+  const i = p.indexOf(code);
+  if(i >= 0) p.splice(i, 1); else p.push(code);
+  try{ localStorage.setItem("q_pinned_v1", JSON.stringify(p)); }catch(e){}
+  render();
+}
+// v7.5 人话解读：把指标翻译成一句能看懂的话
+function plainLine(r){
+  const K2 = r.K; if(!K2) return "";
+  const parts = [];
+  const bullAlign = K2.ma5 > K2.ma10 && K2.ma10 > K2.ma20;
+  const bearAlign = K2.ma5 < K2.ma10 && K2.ma10 < K2.ma20;
+  if(bullAlign && K2.ma60 && r.price > K2.ma60) parts.push("中期上升趋势健康（均线多头排列，站在季线上方）");
+  else if(bearAlign && r.price < K2.ma20) parts.push("处于下跌趋势中（均线空头排列）");
+  else parts.push("趋势方向不明，均线纠缠");
+  if(K2.pos20 !== null) parts.push(K2.pos20 >= 80 ? "短线已冲到月内高位区，追高性价比差" : K2.pos20 <= 20 ? "短线砸到月内低位区" : "短线位置居中");
+  if(K2.pos52 !== null && K2.pos52 >= 90) parts.push("且处于一年内新高区");
+  if(K2.pos52 !== null && K2.pos52 <= 10) parts.push("且处于一年内新低区");
+  const m = [];
+  m.push(K2.dif > K2.dea ? (K2.dif > 0 ? "MACD多头向上" : "MACD零轴下反弹") : "MACD空头");
+  if(K2.dif > K2.dea && !K2.histExpanding) m.push("但冲劲在衰减（柱体收缩）");
+  m.push(K2.rsi >= 70 ? "RSI>70过热" : K2.rsi <= 30 ? "RSI<30超卖" : "RSI中性");
+  if(K2.K < K2.D && K2.K >= 70) m.push("KDJ高位死叉（短线降温）");
+  if(K2.K > K2.D && K2.K <= 30) m.push("KDJ低位金叉（短线回暖）");
+  parts.push(m.join("，"));
+  if(r.rs !== null && r.rs !== undefined) parts.push("近20日强度排池内前" + (100 - r.rs) + "%（RS=" + r.rs + "）");
+  if(r.rev === 1) parts.push("🔵已入超跌区，等企稳信号");
+  if(r.rev === 2) parts.push("🔵出现企稳迹象（阶段②），等触发");
+  if(r.rev === 3) parts.push("🔵超跌反转已触发（阶段③）");
+  return '<div class="ln" style="color:#64d2ee">🗣 ' + parts.join("；") + '</div>';
+}
+// v7.5 交易结论：买/卖/观望 + 区间 + 止损（优先级：否决>环境门>破位>超跌触发>持仓>价格位置）
+function verdictLine(r){
+  const K2 = r.K; if(!K2) return "";
+  const buyLo = K2.sup1 ? K2.sup1 - 0.5 * K2.atr : null;
+  const buyHi = K2.sup1 ? K2.sup1 + 0.5 * K2.atr : null;
+  const stop = K2.sup1 ? K2.sup1 - K2.atr : null;
+  const sellLo = K2.res1 ? Math.min(K2.res1, K2.res2 || K2.res1) : null;
+  const sellHi = K2.res1 ? Math.max(K2.res1, K2.res2 || K2.res1) : null;
+  let txt = "", col = "#ff9f0a";
+  if(r.veto){ txt = "🚫 否决生效：禁止买入，只执行卖出/止损纪律"; col = "#ff453a"; }
+  else if(r.envGate && !isHold(r.code)){ txt = "⏸ 环境门压制（大盘深跌/下跌通道）：冻结新开仓，只观察不动手"; }
+  else if(stop && r.price < stop){ txt = "⚠️ 现价已跌破止损参考 " + fmt(stop) + "：纪律性离场，不接手"; col = "#ff453a"; }
+  else if(r.rev === 3){ txt = "🔵 超跌反转触发：可小仓试探，止损=" + fmt(K2.ll20 - K2.atr) + "（前低-1×ATR），目标压力 " + (sellLo ? fmt(sellLo) + "~" + fmt(sellHi) : "—"); col = "#64d2ee"; }
+  else if(isHold(r.code)){
+    if(sellLo && r.price >= sellLo) txt = "📤 现价进入压力区 " + fmt(sellLo) + "~" + fmt(sellHi) + "：持仓考虑分批止盈";
+    else if(buyLo && r.price >= buyLo && r.price <= buyHi) txt = "✅ 持仓回踩买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + "：可小幅加仓，跌破 " + fmt(stop) + " 止损";
+    else txt = "✋ 持仓拿稳：跌破支撑 " + fmt(K2.sup1) + " 减仓，跌破 " + fmt(stop) + " 清仓";
+    col = "#30d158";
+  }
+  else if(buyLo && r.price < buyLo){ txt = "👀 现价低于买入区：等回升站上 " + fmt(buyLo) + "~" + fmt(buyHi) + " 再考虑，不摸底"; }
+  else if(buyLo && r.price <= buyHi){ txt = "✅ 现价在建议买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + " 内：回踩买点，止损 " + fmt(stop); col = "#30d158"; }
+  else if(sellLo && r.price >= sellLo){ txt = "📤 现价进入压力区 " + fmt(sellLo) + "~" + fmt(sellHi) + "：不追，等回踩 " + (buyLo ? fmt(buyLo) + "~" + fmt(buyHi) : "支撑区"); }
+  else { txt = "👀 观望：回踩 " + (buyLo ? fmt(buyLo) + "~" + fmt(buyHi) : "—") + " 考虑买入，冲到 " + (sellLo ? fmt(sellLo) + "~" + fmt(sellHi) : "—") + " 考虑卖出"; }
+  return '<div class="ln" style="color:' + col + ';font-weight:600">⚖️ ' + txt + '</div>';
+}
 function renderCards(rows){
   const box = document.getElementById("cards");
   box.innerHTML = "";
   const picked = [], near = [];
+  const PINNED = ["sz300014", "sh603893", "usDRAM", "usNVDA", "usINTC", "usMETA"];   // 默认钉住（核心跟踪标的）
+  const USER_PINS = loadPins();   // v7.8 用户自定义钉住（本地）
+  const pinAll = PINNED.concat(USER_PINS).filter(function(c, i, a){ return a.indexOf(c) === i; });
   rows.forEach(function(r){
+    if(pinAll.indexOf(r.code) >= 0){ r.pinned = true; picked.push(r); return; }
     const sel = !r.thermo && !r.veto && (isHold(r.code) || (r.total !== null && r.total >= 80) || r.rev >= 2 || (r.stage && (r.stage.id >= 3 && r.stage.id <= 5)));
     if(sel) picked.push(r);
     else if(r.total !== null && r.total >= 70 && !r.veto && !r.thermo){ r.obsTier = true; picked.push(r); }
@@ -522,7 +617,7 @@ function renderCards(rows){
     const card = document.createElement("div");
     card.className = "card";
     if(!K2){
-      card.innerHTML = '<div class="hd"><span><b>' + r.name + '</b>' + (isHold(r.code) ? ' <span style="font-size:11px;color:#ff9f0a">持仓</span>' : '') + '</span><span class="nums"><b>' + fmt(r.price) + '</b> <span class="' + cls + '">' + (r.pct>0?"+":"") + fmt(r.pct) + '%</span></span></div><div class="ln"><small>技术分析数据加载中或不可用</small></div>';
+      card.innerHTML = '<div class="hd"><span><b>' + r.name + '</b>' + (isHold(r.code) ? ' <span style="font-size:11px;color:#ff9f0a">持仓</span>' : '') + (r.pinned ? ' <span style="font-size:11px;color:#0a84ff">📌固定</span>' : '') + '</span><span class="nums"><b>' + fmt(r.price) + '</b> <span class="' + cls + '">' + (r.pct>0?"+":"") + fmt(r.pct) + '%</span></span></div><div class="ln"><small>技术分析数据加载中或不可用</small></div>';
       box.appendChild(card);
       return;
     }
@@ -530,7 +625,7 @@ function renderCards(rows){
     const buyHi = K2.sup1 ? K2.sup1 + 0.5 * K2.atr : null;
     const stop = K2.sup1 ? K2.sup1 - K2.atr : null;
     card.innerHTML =
-      '<div class="hd"><span><b>' + r.name + '</b>' + (isHold(r.code) ? ' <span style="font-size:11px;color:#ff9f0a">持仓</span>' : '') +
+      '<div class="hd"><span><b>' + r.name + '</b>' + (isHold(r.code) ? ' <span style="font-size:11px;color:#ff9f0a">持仓</span>' : '') + (r.pinned ? ' <span style="font-size:11px;color:#0a84ff">📌固定</span>' : '') +
       ' <span style="font-size:12px;color:' + (r.total >= 90 ? '#30d158' : r.total >= 80 ? '#0a84ff' : '#98989d') + '">' + (r.grade ? r.grade[0] : K2.label) + '</span>' +
       (r.stage ? ' <span style="font-size:12px;color:#98989d">· ' + r.stage.name + '</span>' : '') +
       (minvN !== null ? ' <span style="font-size:12px;color:#98989d">趋势' + minvN + '/6</span>' : '') +
@@ -555,6 +650,8 @@ function renderCards(rows){
       (MACRO_ON ? '<div class="ln" style="color:#ff9f0a">⚠️ 宏观事件窗口生效中：新开仓建议仓位减半</div>' : "") +
       (trendText(K2)) +
       (r.total !== null && r.total >= 80 && !isHold(r.code) && !r.veto ? '<div class="ln" style="color:#ff9f0a">💸 往返成本≈0.15%+滑点：短线预期利润空间须覆盖成本</div>' : '') +
+      plainLine(r) +
+      verdictLine(r) +
       (r.nearMiss ? '<div class="ln"><small>未达80分门槛，仅为当前最高分观察对象，不产生任何买入动作</small></div>' : "");
     box.appendChild(card);
   });
@@ -626,8 +723,8 @@ function render(){
     }
   });
   // v7.2 大盘环境门：指数六阶段=下跌通道时，非持仓标的总分-20并封顶79（高分只代表抗跌，不代表买点；持仓止损纪律不受影响）
-  const gateA = shRow && shRow.stage && shRow.stage.id === 6;
-  const gateU = ixRow && ixRow.stage && ixRow.stage.id === 6;
+  const gateA = shRow && shRow.stage && (shRow.stage.id === 1 || shRow.stage.id === 6);
+  const gateU = ixRow && ixRow.stage && (ixRow.stage.id === 1 || ixRow.stage.id === 6);
   rows.forEach(function(r){
     if(isHold(r.code) || r.thermo || r.total === null) return;
     if(r.code === "sh000001" || r.code === "sz399006" || r.code === "usIXIC" || r.code === "usINX" || r.code === "usDJI") return;
@@ -637,8 +734,8 @@ function render(){
       r.grade = gradeOf(r.total);
     }
   });
-  if(gateA) addSig("warn", "大盘环境", "上证指数=下跌通道：A股非持仓标的总分-20（环境门）——银行/电力类高分是抗跌拥挤的反映，读作风险信号而非买点");
-  if(gateU) addSig("warn", "大盘环境", "纳斯达克=下跌通道：美股非持仓标的总分-20（环境门）——高分≠买点，等阶段切换");
+  if(gateA) addSig("warn", "大盘环境", "上证指数=深跌/下跌通道：A股非持仓标的总分-20（环境门）——银行/电力类高分是抗跌拥挤的反映，读作风险信号而非买点");
+  if(gateU) addSig("warn", "大盘环境", "纳斯达克=深跌/下跌通道：美股非持仓标的总分-20（环境门）——高分≠买点，等阶段切换");
   // v5.2：RS池内评级（20日涨幅百分位）+ 池内市场宽度温度计
   const rsArr = rows.filter(function(r){ return r.K && r.K.ret20 !== null; });
   rsArr.forEach(function(r){
@@ -669,7 +766,7 @@ function render(){
       const K2 = r.K;
       const tr = document.createElement("tr");
       tr.innerHTML =
-        '<td class="l">' + r.name + (isHold(r.code) ? ' <span style="color:#ff9f0a;font-size:10px">持</span>' : r.thermo ? ' <span style="color:#98989d;font-size:10px">温</span>' : (r.total !== null && r.total >= 80 && !r.thermo) ? ' <span style="color:#0a84ff;font-size:11px">⭐</span>' : '') + '</td>' +
+        '<td class="l"><span onclick="togglePin(\'' + r.code + '\')" style="cursor:pointer" title="钉住/取消：固定到上方机会与持仓区（本机保存）">' + (pinAll.indexOf(r.code) >= 0 ? '📌' : '<span style="opacity:.3">📌</span>') + '</span> ' + r.name + (isHold(r.code) ? ' <span style="color:#ff9f0a;font-size:10px">持</span>' : r.thermo ? ' <span style="color:#98989d;font-size:10px">温</span>' : (r.total !== null && r.total >= 80 && !r.thermo) ? ' <span style="color:#0a84ff;font-size:11px">⭐</span>' : '') + '</td>' +
         '<td>' + fmt(r.price) + '</td>' +
         '<td class="' + cls + '">' + (r.pct > 0 ? "+" : "") + fmt(r.pct) + '</td>' +
         '<td class="' + (K2 && K2.ret20 !== null && K2.ret20 > 0 ? "up" : "dn") + '">' + (K2 && K2.ret20 !== null ? ((K2.ret20 > 0 ? "+" : "") + fmt(K2.ret20,1)) : "—") + '</td>' +
