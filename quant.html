@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.13</title>
+<title>信号监控 v7.14</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.13</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.14</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,7 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.14 美股盘前支持（2026-10-22 晚）</b>：实测腾讯美股报价不含盘前（时间戳停在常规收盘16:00），东财美股报价含盘前最新成交——报价优先级改为东财优先、腾讯兜底，保留偏差>15%脏数据防线；盘前时段（北京 17:00-21:30 夏令时）卡片显示的是盘前实时价，技术位（支撑/压力/止损）与K线收盘价的偏差属正常现象，开盘后会收敛。<br>
   <b>v7.13 重点前置（2026-10-22 晚）</b>：①机会与持仓区卡片按"可操作性"排序——可动手的（现价在买入区/超跌触发/持仓破位纪律动作）永远在最前，其次持仓压力区止盈/拿稳，再次观望级；②表格只分 A股/美股 两组，组内同规则排序且涨幅高的（反弹的）排前面——打开页面第一屏就是"今天最可能需要操作的标的"，不再有重点混乱。<br>
   <b>v7.12 双源校验（2026-10-22 晚）</b>：①报价双源校验——东财与腾讯偏差>15%（且>0.5元）自动采信腾讯并在状态栏显示"校验修正N"（单源脏数据防线，DRAM标度异常即此类）；②美股K线第四兜底源：新浪美股日线（script标签直读，今日实测对DRAM返回完整历史）。<br>
   <b>v7.11 环境门豁免（2026-10-22）</b>：环境门不再一刀切——①<b>超跌反转触发（阶段③）</b>豁免（左侧底部信号本来就是为弱市设计的，冻结它=机制自相矛盾）；②<b>强势回踩</b>豁免（池内20日强度前20% 且 现价站上MA60 = 业绩/资金双强的真强势股）。豁免标显示浅蓝"环境豁免"标签，信号区提示豁免数量；其余标的仍-20封顶79。注意：豁免只恢复"可见性"，新开仓仓位纪律仍建议减半，且账本级纪律（证伪线/止损线）永远高于页面结论。<br>
@@ -192,13 +193,17 @@ function loadQuotes(){
       return loadQuotesEM(cs).then(function(){
         // v7.12 双源校验：东财与腾讯偏差>15%（且>0.5元）时采信腾讯并计数——防单源脏数据（如DRAM标度异常）
         return loadQuotesTX(cs).then(function(txGot){
+          // v7.14：东财优先（美股盘前最新价只在东财侧），腾讯为基准兜底+脏数据防线
           let nEM = 0, nFix = 0;
           cs.forEach(function(c){
             const e = emGot[c], t = txGot[c];
             if(e) nEM++;
-            if(t && t.price) quotes[c] = t;   // 腾讯为基准
-            else if(e) quotes[c] = e;
-            if(e && t && t.price && Math.abs(e.price - t.price) / t.price > 0.15 && Math.abs(e.price - t.price) > 0.5) nFix++;
+            if(t && t.price) quotes[c] = t;
+            if(e && e.price){
+              const dev = (t && t.price) ? Math.abs(e.price - t.price) / t.price : 0;
+              if(dev > 0.15 && Math.abs(e.price - t.price) > 0.5){ nFix++; }   // 东财脏数据（标度异常）：维持腾讯
+              else quotes[c] = e;   // 东财优先：美股盘前（北京17:00-21:30夏令）只有东财更新
+            }
           });
           SRC.q = nEM === 0 ? "腾讯" : (nFix ? "东财·校验修正" + nFix : "东财");
         });
