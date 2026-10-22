@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.1</title>
+<title>信号监控 v7.3</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.1</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.3</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,8 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.3 热修（2026-10-22 上午）</b>：①报价部分标的缺失→东财缺哪只腾讯补哪只（不再整批放弃）；②温度计龙头（茅台/美的/平安/海油/神华/迈瑞/东财/比亚迪）不再显示⭐徽章与"重点关注"等级，只显示"·温度计·"；③反转·突破列显示①超跌态（此前仅显示②③，空白易误解）；④重要事件区东财快讯改 JSONP 直连——此前抓不到的根因是 fetch 被 CORS 拦截；⑤list.js 引用加版本号参数，防浏览器缓存旧文件（旧文件里还有持仓信息）。<br>
+  <b>v7.2 打分语义与板块细分（2026-10-22）</b>：①<b>大盘环境门</b>——上证/纳指六阶段=下跌通道时，非持仓标的总分-20并封顶79（高分只代表抗跌，不代表买点；持仓止损纪律不受影响，指数行本身豁免）；②<b>纠正"分高=该买"</b>——总分语义改为"买点质量"：bank/defensive（深度价值/类债）20日高位且52周高位=拥挤，位置分自动降权——趋势强度请看六阶段与M模板，勿与买点质量混读；③<b>板块打分细分</b>——新增 bank（银行/金融：支撑/均值回归权重36最高，天量=出货警讯）与 defensive（类债公用/红利：健康区间30-70满分，高位惩罚）两套权重，与 growth/value/cyclical 并列，由 list.js 的 PROFILE_OF 指派。银行/电力弱势市里"集体高分"读作拥挤信号，不是买入信号。<br>
   <b>v7.1 数据源切换（2026-10-22）</b>：行情/K线主源切东方财富统一接口——K线 push2his（日K 320根·2026-10-22 实测连通）、报价 ulist（40只/批），全部走 JSONP script 标签跨域（不依赖对方 CORS 放行）；secid 规则：沪1./深0./美股105./全球指数100.（美股指数温度计口径映射：IXIC→NDX、INX→SPX、DJI→DJIA）；腾讯（qt.gtimg.cn/ifzq）自动降级为兜底链，状态栏实时显示当前行情源/K线源。信号评分体系原样保留。<br>
   <b>v7.0 架构重构</b>：数据层整体换成测试版实证的腾讯系fetch直连（fetch+GBK解码报价、web.ifzq.gtimg.cn K线主源320根、内存5分钟TTL缓存、5 worker限速），无script标签/无东财/无localStorage K线缓存；信号评分体系（七维100分/六阶段/超跌通道/一票否决/板块联动）原样保留。<br>
   <b>技术评分（v5.1·100分制·纯量价指标）</b>：成长型=均线(17)+MACD(17)+20日位置(25)+RSI(8)+KDJ(8)+量能(17)+支撑距离(8)（价值/周期型权重见代码WP表，各自合计100）；超跌反转触发+20、企稳+12、放量创20日新高+5。<b>事件分已移除</b>：事件信息看上方"重要事件"区，主观判断在晨报/晚报。<br>
@@ -94,7 +96,7 @@
   v6.4：事件层重写——双直连源+本地news.json自动化钩子+📥手动粘贴兜底区（CORS拦截时复制金十App快讯粘贴即可）；能打开网站≠网页能抓取（跨域安全策略）。<br>
   📅重要事件区：东财快讯+金十日历双权威源并行抓取；🔴重要新闻与⭐自选相关词自动置顶，风险类关键词自动生成红色预警；盘中异动（涨跌±5%、振幅>8%、量比>3）由页面自动检测；同板块≥3只齐发同类信号自动合并为板块联动一条。本页为技术面参考，不构成交易建议；成本与纪律分析见晨报/晚报。
 </div>
-<script src="./list.js"></script>
+<script src="./list.js?v=7.3"></script>
 <script>
 // ===== 思路致谢（仅借鉴方法论，本文件全部代码原创，未复制任何项目代码）=====
 // Minervini趋势模板/RS相对强度/市场宽度：思想借鉴自 xang1234/stock-screener（GitHub）
@@ -177,8 +179,9 @@ function loadQuotes(){
   let chain = Promise.resolve();
   groups.forEach(function(cs){
     chain = chain.then(function(){
-      return loadQuotesEM(cs).then(function(n){
-        if(!n){ SRC.q = "腾讯"; return loadQuotesTX(cs); }
+      return loadQuotesEM(cs).then(function(missing){
+        if(missing.length === cs.length) SRC.q = "腾讯";
+        if(missing.length) return loadQuotesTX(missing);
       }).then(function(){ return new Promise(function(r){ setTimeout(r, 150); }); });
     });
   });
@@ -188,20 +191,20 @@ function loadQuotesEM(cs){
   const u = "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&fields=f12,f2,f3,f15,f16,f5,f6,f8,f10&secids=" + cs.map(emSecid).join(",");
   return fetchJSONP(u, 8000).then(function(j){
     const arr = j && j.data && j.data.diff;
-    if(!arr || !arr.length) return 0;
-    let n = 0;
-    for(let i = 0; i < arr.length && i < cs.length; i++){
+    if(!arr || !arr.length) return cs.slice();
+    SRC.q = "东财";
+    const missing = [];
+    for(let i = 0; i < cs.length; i++){
       const d = arr[i];
-      const price = +d.f2, pct = +d.f3;
-      if(!isFinite(price) || price <= 0) continue;
+      const price = d ? +d.f2 : NaN, pct = d ? +d.f3 : NaN;
+      if(!isFinite(price) || price <= 0){ missing.push(cs[i]); continue; }
       quotes[cs[i]] = { price: price, pct: isFinite(pct) ? pct : null,
-        high: +d.f15 || null, low: +d.f16 || null,
-        vol: +d.f5 || null, amt: +d.f6 || null, turn: +d.f8 || null,
+        high: d.f15 ? +d.f15 : null, low: d.f16 ? +d.f16 : null,
+        vol: d.f5 ? +d.f5 : null, amt: d.f6 ? +d.f6 : null, turn: d.f8 ? +d.f8 : null,
         volratio: (isFinite(+d.f10) && d.f10 > 0 && d.f10 < 50) ? +d.f10 : null };
-      n++;
     }
-    return n;
-  });
+    return missing;
+  }, function(){ return cs.slice(); });
 }
 function loadQuotesTX(cs){
   return fetchGBK("https://qt.gtimg.cn/q=" + cs.join(",") + "&_=" + Date.now()).then(function(txt){
@@ -421,7 +424,9 @@ function techScore(r, K2){
   const WP = {
     growth:   {ma:17, macd:17, pos:25, rsi:8, kdj:8,  vol:17, sup:8},
     value:    {ma:25, macd:8,  pos:21, rsi:8, kdj:5,  vol:8,  sup:25},
-    cyclical: {ma:13, macd:13, pos:33, rsi:10,kdj:7,  vol:13, sup:11}
+    cyclical: {ma:13, macd:13, pos:33, rsi:10,kdj:7,  vol:13, sup:11},
+    bank:     {ma:20, macd:5,  pos:21, rsi:8, kdj:5,  vol:5,  sup:36},
+    defensive:{ma:22, macd:8,  pos:25, rsi:8, kdj:5,  vol:6,  sup:26}
   };
   const W = WP[r.prof] || WP.growth;
   let s = 0;
@@ -432,6 +437,11 @@ function techScore(r, K2){
   // 位置：growth高位=强；value高位=慢牛健康；cyclical低位=低吸区
   if(K2.pos20 !== null){
     if(r.prof === "cyclical") s += K2.pos20 <= 20 ? W.pos : K2.pos20 <= 50 ? W.pos * 0.55 : K2.pos20 <= 80 ? W.pos * 0.35 : W.pos * 0.15;
+    else if(r.prof === "bank" || r.prof === "defensive"){
+      // v7.2：总分语义=买点质量。深度价值/类债：健康区间30-70满分；20日高位且52周高位=拥挤降权（不奖励追防御抱团）
+      const crowd = K2.pos20 >= 80 && K2.pos52 !== null && K2.pos52 >= 85;
+      s += crowd ? W.pos * 0.3 : K2.pos20 >= 80 ? W.pos * 0.6 : (K2.pos20 >= 30 && K2.pos20 <= 70) ? W.pos : K2.pos20 < 30 ? W.pos * 0.5 : W.pos * 0.7;
+    }
     else if(r.prof === "value") s += K2.pos20 >= 80 ? W.pos : K2.pos20 >= 50 ? W.pos * 0.6 : K2.pos20 >= 20 ? W.pos * 0.35 : W.pos * 0.2;
     else s += K2.pos20 >= 95 ? W.pos : K2.pos20 >= 80 ? W.pos * 0.65 : K2.pos20 >= 50 ? W.pos * 0.4 : K2.pos20 >= 20 ? W.pos * 0.2 : W.pos * 0.13;
   } else s += W.pos * 0.33;
@@ -443,7 +453,9 @@ function techScore(r, K2){
   s += Math.min(W.kdj, W.kdj * kj);
   // 量能：value股温和量为健康，暴量反而异常
   if(r.isA){
-    if(r.prof === "value") s += ((r.volratio||0) >= 0.8 && (r.volratio||0) <= 2.5) ? W.vol : (r.volratio||0) > 4 ? W.vol * 0.2 : W.vol * 0.5;
+    if(r.prof === "bank") s += ((r.volratio||0) >= 0.8 && (r.volratio||0) <= 2.5) ? W.vol : (r.volratio||0) > 4 ? W.vol * 0.15 : (r.volratio||0) > 2.5 ? W.vol * 0.5 : W.vol * 0.7;
+    else if(r.prof === "defensive") s += ((r.volratio||0) >= 0.8 && (r.volratio||0) <= 2.5) ? W.vol : (r.volratio||0) > 4 ? W.vol * 0.2 : W.vol * 0.5;
+    else if(r.prof === "value") s += ((r.volratio||0) >= 0.8 && (r.volratio||0) <= 2.5) ? W.vol : (r.volratio||0) > 4 ? W.vol * 0.2 : W.vol * 0.5;
     else s += (r.volratio||0) > 2 ? W.vol : (r.volratio||0) >= 1 ? W.vol * 0.6 : (r.volratio||0) >= 0.8 ? W.vol * 0.3 : W.vol * 0.1;
   } else { s += Math.abs(r.pct) > 3 ? W.vol * 0.8 : W.vol * 0.4; }
   // 支撑距离：value股回踩买点权重最高
@@ -592,6 +604,7 @@ function render(){
     if(r.total !== null && K && K.pos20 !== null && K.pos20 >= 98 && r.volratio !== null && r.volratio > 1.5){ r.bonus = 5; r.total = Math.min(100, r.total + 5); }
     // 一票否决：VETO生效期间总分压至59以下，买入类信号全部冻结（卖出纪律不受影响）
     r.grade = r.total === null ? null : gradeOf(r.total);
+    if(r.thermo && r.grade) r.grade = ["·温度计·", "b-0"];   // v7.3：板块龙头永不进入买入等级
     rows.push(r);
   });
   // v5.4 自动否决统一判定：放量破20日低点，但大盘同跌≤-2%时判定为系统性下跌、否决暂停
@@ -612,6 +625,20 @@ function render(){
       }
     }
   });
+  // v7.2 大盘环境门：指数六阶段=下跌通道时，非持仓标的总分-20并封顶79（高分只代表抗跌，不代表买点；持仓止损纪律不受影响）
+  const gateA = shRow && shRow.stage && shRow.stage.id === 6;
+  const gateU = ixRow && ixRow.stage && ixRow.stage.id === 6;
+  rows.forEach(function(r){
+    if(isHold(r.code) || r.thermo || r.total === null) return;
+    if(r.code === "sh000001" || r.code === "sz399006" || r.code === "usIXIC" || r.code === "usINX" || r.code === "usDJI") return;
+    if(r.isA ? gateA : gateU){
+      r.envGate = true;
+      r.total = Math.min(79, Math.max(0, r.total - 20));
+      r.grade = gradeOf(r.total);
+    }
+  });
+  if(gateA) addSig("warn", "大盘环境", "上证指数=下跌通道：A股非持仓标的总分-20（环境门）——银行/电力类高分是抗跌拥挤的反映，读作风险信号而非买点");
+  if(gateU) addSig("warn", "大盘环境", "纳斯达克=下跌通道：美股非持仓标的总分-20（环境门）——高分≠买点，等阶段切换");
   // v5.2：RS池内评级（20日涨幅百分位）+ 池内市场宽度温度计
   const rsArr = rows.filter(function(r){ return r.K && r.K.ret20 !== null; });
   rsArr.forEach(function(r){
@@ -642,15 +669,15 @@ function render(){
       const K2 = r.K;
       const tr = document.createElement("tr");
       tr.innerHTML =
-        '<td class="l">' + r.name + (isHold(r.code) ? ' <span style="color:#ff9f0a;font-size:10px">持</span>' : r.thermo ? ' <span style="color:#98989d;font-size:10px">温</span>' : (r.total !== null && r.total >= 80) ? ' <span style="color:#0a84ff;font-size:11px">⭐</span>' : '') + '</td>' +
+        '<td class="l">' + r.name + (isHold(r.code) ? ' <span style="color:#ff9f0a;font-size:10px">持</span>' : r.thermo ? ' <span style="color:#98989d;font-size:10px">温</span>' : (r.total !== null && r.total >= 80 && !r.thermo) ? ' <span style="color:#0a84ff;font-size:11px">⭐</span>' : '') + '</td>' +
         '<td>' + fmt(r.price) + '</td>' +
         '<td class="' + cls + '">' + (r.pct > 0 ? "+" : "") + fmt(r.pct) + '</td>' +
         '<td class="' + (K2 && K2.ret20 !== null && K2.ret20 > 0 ? "up" : "dn") + '">' + (K2 && K2.ret20 !== null ? ((K2.ret20 > 0 ? "+" : "") + fmt(K2.ret20,1)) : "—") + '</td>' +
         '<td><b>' + (r.rs !== null && r.rs !== undefined ? r.rs : "—") + '</b></td>' +
         '<td>' + (r.tech !== null ? r.tech : "—") + '</td>' +
-        '<td>' + ((r.rev >= 2 ? "+" + (r.rev === 3 ? 20 : 12) : "") + (r.bonus ? " +5" : "") || "—") + '</td>' +
+        '<td>' + (r.rev === 3 ? "+20触发" : r.rev === 2 ? "+12企稳" : r.rev === 1 ? "①超跌" : r.bonus ? "+5突破" : "—") + '</td>' +
         '<td><b>' + (r.total !== null ? r.total : "—") + '</b></td>' +
-        '<td>' + (r.veto ? '🚫 ' : '') + (r.grade ? '<span style="font-size:12px;color:' + (r.total >= 90 ? '#30d158' : r.total >= 80 ? '#0a84ff' : '#98989d') + '">' + r.grade[0] + '</span>' : "—") + (r.stage ? '<div style="font-size:11px;color:#98989d">' + r.stage.name + '</div>' : '') + '</td>' +
+        '<td>' + (r.veto ? '🚫 ' : '') + (r.grade ? '<span style="font-size:12px;color:' + (r.total >= 90 ? '#30d158' : r.total >= 80 ? '#0a84ff' : '#98989d') + '">' + r.grade[0] + '</span>' : "—") + (r.envGate ? ' <span style="font-size:11px;color:#ff9f0a">环境-20</span>' : '') + (r.stage ? '<div style="font-size:11px;color:#98989d">' + r.stage.name + '</div>' : '') + '</td>' +
         '<td>' + (K2 ? fmt(K2.rsi,0) + (K2.rsi >= 70 ? '<span class="up">▲</span>' : K2.rsi <= 30 ? '<span class="dn">▼</span>' : '') : "—") + '</td>' +
         '<td>' + (K2 && K2.pos52 !== null ? fmt(K2.pos52,0) + "%" : "—") + '</td>';
       tb.appendChild(tr);
@@ -692,7 +719,7 @@ function render(){
   document.getElementById("status").textContent = "已更新 " + now.toLocaleTimeString("zh-CN") +
     "｜行情" + ok + "成功/" + fail + "失败｜指标" + kN + "/" + LIST.length +
     "｜K线" + (kAge === null ? "未加载" : kAge + "分钟前") +
-    "｜行情源" + SRC.q + "·K线源" + SRC.k + "｜事件源：" + (EV_FEED.src || "加载中…");
+    "｜行情源" + SRC.q + "·K线源" + SRC.k + "｜环境门:" + ((gateA || gateU) ? "压制" : "关") + "｜事件源：" + (EV_FEED.src || "加载中…");
 }
 
 function renderSignals(){
@@ -831,6 +858,16 @@ const EV_SOURCES = [
 ];
 
 function loadEventSrc(){
+  // v7.3：东财快讯走JSONP（script标签不受CORS限制）——事件区抓不到的根因是fetch跨域被拦
+  const emU = "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30";
+  fetchJSONP(emU, 5000).then(function(j){
+    const items = parseEM(j);
+    if(!items || !items.length) throw new Error("empty");
+    EV_FEED.items = items; EV_FEED.src = "东财快讯"; EV_FEED.at = new Date();
+    digestEvents(); renderEvents(items);
+  }).catch(function(){ runEvChain(); });
+}
+function runEvChain(){
   const groups = [EV_SOURCES];
   let g = 0;
   function tryGroup(){
