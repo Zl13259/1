@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.16</title>
+<title>信号监控 v7.18</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.16</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.18</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,11 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.18 死链修复+精简（2026-10-22 夜，全文件自查）</b>：①<b>修复事件降级链隐藏bug</b>——fetchJSON本就返回解析后JSON，runEvChain却又调一次.json()，导致金十日历源和news.json钩子从上线起就永远失败（异常被catch吞掉，表象被误读为"CORS拦截"）。修复后降级链真正可用，未来GitHub Actions生成news.json即插即用；②事件链去重——catch链里的东财快讯JSONP与EV_SOURCES[0]完全同URL同解析，删重复实现；③quotes对象的turn/amt/vol三字段只写不读，删除；④历史版本说明（v6.4~v7.16）折叠归档，规则文档保持展开；⑤微简化：KSET一行化、renderScan去多余replace（sigmeta每次render前已重置）、s.make()两次调用改一次。<b>打分与判定逻辑零改动，行为不变。</b><br>
+  <b>v7.17 K线防线补强+放量判定修正（2026-10-22 夜，依据数据复核）</b>：①v7.16的"末根收盘vs实时报价"校验拦不住"末根对、中间断"的拼接脏数据（DRAM事故：源序列拼接2016→2026，末根≈现价但20日+1254%算出87分假信号）——现K线统一过kSanity：最新bar过期超25天/相邻跳空超30天（取最后连续段）/单日±100%/20日±150%任一即整组作废，东财/腾讯K线末根保留日期供校验；②超跌反转"放量阳线"触发条件弃用报价量比（盘中瞬时峰值收盘后残留），改用K线5日均量自算——2026-10-22通富微电缩量日误触发阶段③即此因。<b>遗留观察：一票否决的volratio>1.8同病，方向为从严暂不改动，若再发现否决误触发再修。</b><br>
+<details style="margin-top:4px">
+    <summary style="cursor:pointer;color:#0a84ff">📜 历史版本说明 v6.4 ~ v7.16（纯档案，点击展开，不影响任何功能）</summary>
+    <div style="margin-top:6px">
   <b>v7.16 脏K线防线（2026-10-22 夜，依据真机截图）</b>：DRAM出现"支撑-14.30/止损-17.70/20日+1254%/RS 99"式数据中毒（疑似新浪兜底源返回标度错误数据，冒烟测试覆盖不到真实响应）。修复：K线末根收盘价与实时报价背离>25%即整组作废（setK写入前+render渲染前双道校验），中毒标的显示"技术分析数据不可用"而非错误信号，RS池不再被污染。<b>教训：第四兜底源上线前必须用真实数据验证——本次错在我。</b><br>
   <b>v7.15 容错热修（2026-10-22 晚）</b>：修复"整页识别不到数据"——v7.12 起报价链要求腾讯全量对账，但腾讯一步无失败保护：美股开盘时段（21:30 北京）腾讯接口抖动会拖死整条链、render 永不执行。现每批次独立容错：腾讯挂了东财数据照常渲染、本批全灭仅跳过（下轮自动重试），任何单点故障不再导致白屏。<br>
   <b>v7.14 美股盘前支持（2026-10-22 晚）</b>：实测腾讯美股报价不含盘前（时间戳停在常规收盘16:00），东财美股报价含盘前最新成交——报价优先级改为东财优先、腾讯兜底，保留偏差>15%脏数据防线；盘前时段（北京 17:00-21:30 夏令时）卡片显示的是盘前实时价，技术位（支撑/压力/止损）与K线收盘价的偏差属正常现象，开盘后会收敛。<br>
@@ -106,7 +111,9 @@
   <b>RS评级</b>：20日涨幅在本次扫描全部标的内的百分位（0-99，池内相对强度）；<b>M模板</b>：Minervini趋势模板六条件通过数——现价>MA150、现价>MA200、MA50>MA150、MA200上行、距52周高点≤25%、现价>MA50；≥5强势趋势/4及格/≤3警惕（长期数据不足的标的自动不显示）。<b>🌡️池内宽度</b>：页顶显示池内涨跌家数与20日新高/新低，辅助判断情绪极值。<br>
   <b>💸成本磨损</b>：A股短线往返成本约0.15%（佣金+印花税+滑点），网格/价差类策略利润空间须先覆盖成本；信号结算以触发时价为准，勿用盘中极值估价。<br>
   v6.5：行情/K线源切换——借鉴测试版实证：腾讯行情改fetch+GBK解码（qt.gtimg.cn跨域放行）、腾讯ifzq kline升主源（web.ifzq.gtimg.cn跨域放行，美股.OQ后缀）、东财全线降为备用；40只/批限速。<br>
-  v6.4：事件层重写——双直连源+本地news.json自动化钩子+📥手动粘贴兜底区（CORS拦截时复制金十App快讯粘贴即可）；能打开网站≠网页能抓取（跨域安全策略）。<br>
+  v6.4：事件层重写——双直连源+本地news.json自动化钩子+📥手动粘贴兜底区（CORS拦截时复制金十App快讯粘贴即可）；能打开网站≠网页能抓取（跨域安全策略）。<br>    </div>
+  </details>
+
   📅重要事件区：东财快讯+金十日历双权威源并行抓取；🔴重要新闻与⭐自选相关词自动置顶，风险类关键词自动生成红色预警；盘中异动（涨跌±5%、振幅>8%、量比>3）由页面自动检测；同板块≥3只齐发同类信号自动合并为板块联动一条。本页为技术面参考，不构成交易建议；成本与纪律分析见晨报/晚报。
 </div>
 <script src="./list.js?v=7.3"></script>
@@ -125,8 +132,7 @@ const GROUPS = (function(){
   for(let i = 0; i < LIST.length; i++){ (LIST[i][0].indexOf("us") === 0 ? uIdx : aIdx).push(i); }
   return [{name:"A股", idx:aIdx}, {name:"美股", idx:uIdx}];
 })();
-const KSET = [];
-for(let i = 0; i < LIST.length; i++) KSET.push(i);
+const KSET = LIST.map(function(s, i){ return i; });
 let auto = true, timer = null, doDiff = false, MACRO_ON = false, BENCH_RET20 = null;
 let SCAN_META = {stats: ""};
 const PINNED = ["sz300014", "sh603893", "usDRAM", "usNVDA", "usINTC", "usMETA"];   // v7.10 默认钉住（全局）
@@ -184,7 +190,6 @@ function fetchJSON(url, ms){
     return r.json();
   }, function(e){ clearTimeout(t); throw e; });
 }
-const fetchTO = fetchJSON;
 function loadQuotes(){
   const codes = LIST.map(function(s){ return s[0]; });
   const groups = [];
@@ -231,7 +236,6 @@ function loadQuotesEM(cs){
       if(!isFinite(price) || price <= 0) return;
       got[code] = { price: price, pct: isFinite(pct) ? pct : null,
         high: d.f15 ? +d.f15 : null, low: d.f16 ? +d.f16 : null,
-        vol: d.f5 ? +d.f5 : null, amt: d.f6 ? +d.f6 : null, turn: d.f8 ? +d.f8 : null,
         volratio: (isFinite(+d.f10) && d.f10 > 0 && d.f10 < 50) ? +d.f10 : null };
     });
     emGot = got;   // v7.12：暂存东财结果，供双源偏差校验
@@ -250,25 +254,50 @@ function loadQuotesTX(cs){
       const price = num(f[3]), pre = num(f[4]);
       got[m[1]] = { price: price,
         pct: (price != null && pre) ? (price - pre) / pre * 100 : null,
-        high: num(f[33]), low: num(f[34]), vol: num(f[36]), amt: num(f[37]), turn: num(f[38]),
+        high: num(f[33]), low: num(f[34]),
         volratio: (num(f[49]) > 0 && num(f[49]) < 50) ? num(f[49]) : null };
     }
     return got;
   });
 }
-function setK(code, bars){
-  if(!bars || bars.length < 30){ KMAP[code] = null; return; }
-  // v7.16 脏数据防线：K线末根收盘价与实时报价背离>25%（且>1元）=数据源标度错误，拒绝写入
-  const lc = bars[bars.length-1][1];
+// v7.17 K线防线：v7.16的"末根vs报价背离"拦不住"末根对但中间断"的拼接脏数据（DRAM事故：源数据拼接2016→2026，末根≈现价，20日却+1254%算出87分假信号）
+function kSanity(code, bars){
+  if(!bars || bars.length < 30) return null;
   const qp = quotes[code] && quotes[code].price;
-  if(qp && isFinite(lc) && Math.abs(lc - qp) / qp > 0.25 && Math.abs(lc - qp) > 1){ KMAP[code] = null; return; }
-  KMAP[code] = calcAll(
+  const lc = bars[bars.length-1][1];
+  if(qp && isFinite(lc) && Math.abs(lc - qp) / qp > 0.25 && Math.abs(lc - qp) > 1) return null;   // 标度错误防线（v7.16逻辑并入）
+  const d0 = bars[0][5];
+  const hasDate = typeof d0 === "string" && !isNaN(Date.parse(d0));
+  if(hasDate){   // 无日期格式的源（新浪）自动降级为仅数值检查
+    const lastD = Date.parse(bars[bars.length-1][5]);
+    if(Date.now() - lastD > 25*864e5) return null;                 // 最新bar过期超25天（长假冗余）
+    let cut = 0;
+    for(let i = 1; i < bars.length; i++){
+      if(Date.parse(bars[i][5]) - Date.parse(bars[i-1][5]) > 30*864e5) cut = i;   // 时间序列断裂：只取最后连续段
+    }
+    bars = cut ? bars.slice(cut) : bars;
+    if(bars.length < 30) return null;
+  }
+  for(let i = Math.max(1, bars.length - 19); i < bars.length; i++){ // 单日±100%=数值爆炸
+    const r1 = bars[i][1] / bars[i-1][1] - 1;
+    if(!isFinite(r1) || Math.abs(r1) > 1) return null;
+  }
+  const r20 = bars[bars.length-1][1] / bars[bars.length-20][1] - 1; // 20日±150%=跨段拼接复利幻觉（DRAM事故实测+1254%）
+  if(!isFinite(r20) || Math.abs(r20) > 1.5) return null;
+  return bars;
+}
+function setK(code, bars){
+  bars = kSanity(code, bars);
+  if(!bars){ KMAP[code] = null; return; }
+  const _r = calcAll(
     bars.map(function(b){ return b[1]; }),
     bars.map(function(b){ return b[2]; }),
     bars.map(function(b){ return b[3]; }),
     bars.map(function(b){ return b[0]; }),
     bars.map(function(b){ return b[4]; })
   );
+  if(_r) _r._vols = bars.slice(-6).map(function(b){ return b[4]; });   // v7.17：外挂末6根量，"放量阳线"触发条件据此自算
+  KMAP[code] = _r;
 }
 function loadKlines(force){
   const now = Date.now();
@@ -314,7 +343,7 @@ function loadKEM(c, now){
     const kl = j && j.data && j.data.klines;
     if(!kl || kl.length < 30) throw new Error("no kline");
     SRC.k = "东财";
-    const bars = kl.map(function(s){ const a = s.split(","); return [ +a[1], +a[2], +a[3], +a[4], +a[5] ]; });
+    const bars = kl.map(function(s){ const a = s.split(","); return [ +a[1], +a[2], +a[3], +a[4], +a[5], a[0] ]; });   // v7.17：末根保留日期供kSanity校验
     kLast[c] = now; setK(c, bars);
   });
 }
@@ -325,7 +354,7 @@ function loadKTX(c, now){
     return fetchJSON(url, 12000).then(function(j){
       const d = (j && j.data && (j.data[key] || j.data[c] || j.data[tq])) || {};
       const arr = d.qfqday || d.day || [];
-      const bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
+      const bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5], k[0] ]; });   // v7.17：末根保留日期供kSanity校验
       if(!bars.length) throw new Error("empty");
       kLast[c] = now; setK(c, bars);
     });
@@ -768,7 +797,8 @@ function render(){
     if(K){
       if(K.rsi <= 30 || K.bullPos <= -2) r.rev = 1;
       if(r.rev >= 1 && ((K.revYang && K.revShrink) || K.revShadow || (K.revYang && r.pct > 2))) r.rev = 2;
-      if(r.rev >= 2 && ((r.price > K.ma5 && K.prevClose <= K.ma5prev) || K.crossUp || (K.revYang && r.volratio > 1.5))) r.rev = 3;
+      const volBurst = K._vols && K._vols.length >= 6 ? K._vols[5] > (K._vols[0]+K._vols[1]+K._vols[2]+K._vols[3]+K._vols[4])/5*1.5 : (r.volratio !== null && r.volratio > 1.5);   // v7.17：放量以K线5日均量自算——报价量比是盘中瞬时值、收盘后残留峰值曾致缩量日误触发阶段③（2026-10-22通富微电事故）
+      if(r.rev >= 2 && ((r.price > K.ma5 && K.prevClose <= K.ma5prev) || K.crossUp || (K.revYang && volBurst))) r.rev = 3;
     }
     r.stage = stageOf(price, K);
     // v5.4：自动否决移至rows构建后统一判定（需先取得大盘当日跌幅）
@@ -956,9 +986,7 @@ function renderSignals(){
 function renderScan(){
   // v5.6：扫描变化日志已隐藏（不再刷屏）；信号自评仍在后台运行，仅在此输出一行统计
   const el = document.getElementById("sigmeta");
-  if(el && SCAN_META && SCAN_META.stats){
-    el.textContent = el.textContent.replace(/｜近\d+个信号：.*$/, "") + SCAN_META.stats;
-  }
+  if(el && SCAN_META && SCAN_META.stats) el.textContent += SCAN_META.stats;
 }
 
 function diffScan(rows){
@@ -1068,14 +1096,8 @@ function loadEventSrc(){
     EV_FEED.items = items; EV_FEED.src = "东财搜索·" + kw; EV_FEED.at = new Date();
     digestEvents(); renderEvents(items);
   }).catch(function(){
-    // 降级1：东财快讯JSONP
-    const emU = "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30";
-    fetchJSONP(emU, 5000).then(function(j){
-      const items = parseEM(j);
-      if(!items || !items.length) throw new Error("empty");
-      EV_FEED.items = items; EV_FEED.src = "东财快讯"; EV_FEED.at = new Date();
-      digestEvents(); renderEvents(items);
-    }).catch(function(){ runEvChain(); });   // 降级2：fetch链+news.json；降级3：手动粘贴区
+    // v7.18：降级链合并——东财快讯JSONP与EV_SOURCES[0]完全同URL同解析，不再重复实现；fetch死链修复后降级链真正可用
+    runEvChain();   // EV_SOURCES：东财快讯→金十日历→news.json；最终兜底：手动粘贴区
   });
 }
 function runEvChain(){
@@ -1086,8 +1108,9 @@ function runEvChain(){
     const gs = groups[g++];
     let pending = gs.length, won = false;
     gs.forEach(function(s){
-      const u = s.make() + (s.make().indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now();
-      fetchTO(u, s.to || 5000).then(function(r){ return r.json(); }).then(function(jj){
+      const base = s.make();
+      const u = base + (base.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now();
+      fetchJSON(u, s.to || 5000).then(function(jj){
         const items = s.parse(jj);
         if(items && items.length && !won){ won = true; EV_FEED.items = items; EV_FEED.src = s.name; EV_FEED.at = new Date(); digestEvents(); renderEvents(items); }
       }).catch(function(){}).then(function(){
