@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.8</title>
+<title>信号监控 v7.10</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.8</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.10</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,8 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.10 修复（2026-10-22 午后，依据真机截图）</b>：①修复表格整体空白——v7.8 的📌开关引用了 renderCards 内部变量 pinAll，表格行在 render() 中执行时越界抛异常致整张表空白；钉住清单已提升为全局函数 getPins()，两处共用；②美股K线三源兜底（ifzq.OQ→ifzq原码→proxy.finance.qq.com 镜像）+ 超时放宽至12s——修复 NVDA/DRAM"技术分析数据加载中"。<br>
+  <b>v7.9 事件源修复（2026-10-22）</b>：重要事件区新增主源——东财官网搜索 JSONP（其自身前端公开接口，每轮 1 次低频请求，关键词按自选板块轮换：存储/半导体/AI/美联储/锂电池/稀土/黄金/芯片/央行/关税，事件区顶部显示当前关键词）；降级链：搜索JSONP→快讯JSONP→fetch链+news.json→手动粘贴区。<br>
   <b>v7.8 自定义钉住（2026-10-22）</b>：下方列表每行行首 📌 可点击——钉住/取消任意标的到上方机会与持仓区，<b>保存在浏览器本地（localStorage），不进仓库、不上传、换设备不携带</b>，与隐私安全条款一致；6 只默认钉住仍可随时取消（取消只影响显示，下次更新默认可再议）。<br>
   <b>v7.7 钉住扩展（2026-10-22）</b>：DRAM/NVDA/INTC/Meta 加入固定钉住，与亿纬/瑞芯微共 6 只核心跟踪标常驻机会与持仓区。钉住≠推荐，全部判定照常生效。<br>
   <b>v7.6 固定钉住（2026-10-22）</b>：亿纬锂能/瑞芯微钉入机会与持仓区常驻显示（📌固定标记）——持仓清单隐私下线后的替代方案：页面不再知道你的持仓，但这两只核心跟踪标的永远在场。<b>钉住≠推荐，解读与结论行照常如实显示（该否决就否决、该破位就破位）。</b><br>
@@ -124,6 +126,8 @@ const KSET = [];
 for(let i = 0; i < LIST.length; i++) KSET.push(i);
 let auto = true, timer = null, doDiff = false, MACRO_ON = false, BENCH_RET20 = null;
 let SCAN_META = {stats: ""};
+const PINNED = ["sz300014", "sh603893", "usDRAM", "usNVDA", "usINTC", "usMETA"];   // v7.10 默认钉住（全局）
+function getPins(){ return PINNED.concat(loadPins()).filter(function(c, i, a){ return a.indexOf(c) === i; }); }
 function fmt(n, d){ if(!isFinite(n)) return "—"; return (+n).toFixed(d === undefined ? 2 : d); }
 
 // ===== 数据层 v7.1：东方财富主源（JSONP script标签跨域·不依赖CORS）→ 腾讯自动降级 =====
@@ -290,23 +294,26 @@ function loadKEM(c, now){
   });
 }
 function loadKTX(c, now){
+  // v7.10：美股K线三源兜底——ifzq(.OQ) → ifzq(原码) → proxy.finance.qq.com镜像（NVDA/DRAM无数据的修复）
   const tq = c.indexOf("us") === 0 ? c + ".OQ" : c;
-  return fetchJSON("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now(), 9000).then(function(j){
-    const d = (j && j.data && (j.data[tq] || j.data[c])) || {};
-    const arr = d.qfqday || d.day || [];
-    let bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
-    if(!bars.length && c !== tq){
-      return fetchJSON("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + c + ",day,,,320,qfq&_=" + Date.now(), 9000).then(function(j2){
-        const d2 = (j2 && j2.data && (j2.data[c] || j2.data[tq])) || {};
-        const arr2 = d2.qfqday || d2.day || [];
-        bars = arr2.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
-        if(!bars.length) return;
-        kLast[c] = now; setK(c, bars);
-      });
-    }
-    if(!bars.length) return;
-    kLast[c] = now; setK(c, bars);
-  });
+  function one(url, key){
+    return fetchJSON(url, 12000).then(function(j){
+      const d = (j && j.data && (j.data[key] || j.data[c] || j.data[tq])) || {};
+      const arr = d.qfqday || d.day || [];
+      const bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5] ]; });
+      if(!bars.length) throw new Error("empty");
+      kLast[c] = now; setK(c, bars);
+    });
+  }
+  const p1 = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now();
+  if(c === tq) return one(p1, tq).catch(function(){
+    return one("https://proxy.finance.qq.com/ifzqgtimg/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now(), tq);
+  }).catch(function(){});
+  return one(p1, tq).catch(function(){
+    return one("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + c + ",day,,,320,qfq&_=" + Date.now(), c);
+  }).catch(function(){
+    return one("https://proxy.finance.qq.com/ifzqgtimg/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now(), tq);
+  }).catch(function(){ /* 三源皆败：保留旧数据，下轮TTL再试 */ });
 }
 // ---------- 指标计算与评分（v5.1体系原样保留） ----------
 function calcAll(closes, highs, lows, opens, vols){
@@ -593,11 +600,9 @@ function renderCards(rows){
   const box = document.getElementById("cards");
   box.innerHTML = "";
   const picked = [], near = [];
-  const PINNED = ["sz300014", "sh603893", "usDRAM", "usNVDA", "usINTC", "usMETA"];   // 默认钉住（核心跟踪标的）
-  const USER_PINS = loadPins();   // v7.8 用户自定义钉住（本地）
-  const pinAll = PINNED.concat(USER_PINS).filter(function(c, i, a){ return a.indexOf(c) === i; });
+  const pinList = getPins();   // v7.10 修复：钉住清单提升为全局函数（旧版pinAll是renderCards局部变量，表格行引用即抛异常→表格空白）
   rows.forEach(function(r){
-    if(pinAll.indexOf(r.code) >= 0){ r.pinned = true; picked.push(r); return; }
+    if(pinList.indexOf(r.code) >= 0){ r.pinned = true; picked.push(r); return; }
     const sel = !r.thermo && !r.veto && (isHold(r.code) || (r.total !== null && r.total >= 80) || r.rev >= 2 || (r.stage && (r.stage.id >= 3 && r.stage.id <= 5)));
     if(sel) picked.push(r);
     else if(r.total !== null && r.total >= 70 && !r.veto && !r.thermo){ r.obsTier = true; picked.push(r); }
@@ -755,6 +760,7 @@ function render(){
     "</b>｜20日新高 " + nhN + " · 新低 " + nlN + "｜宽度 " + (rows.length ? Math.round(advN / rows.length * 100) : 0) + "%";
   MACRO_ON = EV_FEED.macro;
   renderCards(rows);
+  const pinList = getPins();   // v7.10：表格行📌开关使用的钉住清单
   GROUPS.forEach(function(g){
     const trg = document.createElement("tr");
     trg.innerHTML = '<td colspan="11" class="grp">▸ ' + g.name + "</td>";
@@ -766,7 +772,7 @@ function render(){
       const K2 = r.K;
       const tr = document.createElement("tr");
       tr.innerHTML =
-        '<td class="l"><span onclick="togglePin(\'' + r.code + '\')" style="cursor:pointer" title="钉住/取消：固定到上方机会与持仓区（本机保存）">' + (pinAll.indexOf(r.code) >= 0 ? '📌' : '<span style="opacity:.3">📌</span>') + '</span> ' + r.name + (isHold(r.code) ? ' <span style="color:#ff9f0a;font-size:10px">持</span>' : r.thermo ? ' <span style="color:#98989d;font-size:10px">温</span>' : (r.total !== null && r.total >= 80 && !r.thermo) ? ' <span style="color:#0a84ff;font-size:11px">⭐</span>' : '') + '</td>' +
+        '<td class="l"><span onclick="togglePin(\'' + r.code + '\')" style="cursor:pointer" title="钉住/取消：固定到上方机会与持仓区（本机保存）">' + (pinList.indexOf(r.code) >= 0 ? '📌' : '<span style="opacity:.3">📌</span>') + '</span> ' + r.name + (isHold(r.code) ? ' <span style="color:#ff9f0a;font-size:10px">持</span>' : r.thermo ? ' <span style="color:#98989d;font-size:10px">温</span>' : (r.total !== null && r.total >= 80 && !r.thermo) ? ' <span style="color:#0a84ff;font-size:11px">⭐</span>' : '') + '</td>' +
         '<td>' + fmt(r.price) + '</td>' +
         '<td class="' + cls + '">' + (r.pct > 0 ? "+" : "") + fmt(r.pct) + '</td>' +
         '<td class="' + (K2 && K2.ret20 !== null && K2.ret20 > 0 ? "up" : "dn") + '">' + (K2 && K2.ret20 !== null ? ((K2.ret20 > 0 ? "+" : "") + fmt(K2.ret20,1)) : "—") + '</td>' +
@@ -954,15 +960,36 @@ const EV_SOURCES = [
   {name:"本地news.json", to:2000, make:function(){ return "./news.json?_=" + Date.now(); }, parse:parseLOCAL}
 ];
 
+// v7.9 东财搜索JSONP源：官网前端自身调用的公开接口，关键词轮换覆盖自选板块（每轮1次请求，低频合规）
+const EV_KWS = ["存储", "半导体", "AI", "美联储", "锂电池", "稀土", "黄金", "芯片", "央行", "关税"];
+function parseSearch(j){
+  const l = j && j.result && j.result.cmsArticleWebOld;
+  if(!Array.isArray(l) || !l.length) return null;
+  return l.map(function(x){
+    return { time: String(x.date || "").slice(5, 16),
+             text: (x.title || "") + "：" + String(x.content || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().slice(0, 80),
+             url: x.url, source: x.mediaName || "东财", imp: 1 };
+  }).filter(function(x){ return x.text.length > 4; });
+}
 function loadEventSrc(){
-  // v7.3：东财快讯走JSONP（script标签不受CORS限制）——事件区抓不到的根因是fetch跨域被拦
-  const emU = "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30";
-  fetchJSONP(emU, 5000).then(function(j){
-    const items = parseEM(j);
+  const kw = EV_KWS[(cyc++) % EV_KWS.length];
+  const su = "https://search-api-web.eastmoney.com/search/jsonp?param=" + encodeURIComponent(JSON.stringify({
+    uid: "", keyword: kw, type: ["cmsArticleWebOld"], client: "web", clientType: "web", clientVersion: "curr",
+    param: { cmsArticleWebOld: { searchScope: "default", sort: "time", pageIndex: 1, pageSize: 10 } } }));
+  fetchJSONP(su, 6000).then(parseSearch).then(function(items){
     if(!items || !items.length) throw new Error("empty");
-    EV_FEED.items = items; EV_FEED.src = "东财快讯"; EV_FEED.at = new Date();
+    EV_FEED.items = items; EV_FEED.src = "东财搜索·" + kw; EV_FEED.at = new Date();
     digestEvents(); renderEvents(items);
-  }).catch(function(){ runEvChain(); });
+  }).catch(function(){
+    // 降级1：东财快讯JSONP
+    const emU = "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30";
+    fetchJSONP(emU, 5000).then(function(j){
+      const items = parseEM(j);
+      if(!items || !items.length) throw new Error("empty");
+      EV_FEED.items = items; EV_FEED.src = "东财快讯"; EV_FEED.at = new Date();
+      digestEvents(); renderEvents(items);
+    }).catch(function(){ runEvChain(); });   // 降级2：fetch链+news.json；降级3：手动粘贴区
+  });
 }
 function runEvChain(){
   const groups = [EV_SOURCES];
