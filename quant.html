@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.15</title>
+<title>信号监控 v7.16</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.15</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.16</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,7 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.16 脏K线防线（2026-10-22 夜，依据真机截图）</b>：DRAM出现"支撑-14.30/止损-17.70/20日+1254%/RS 99"式数据中毒（疑似新浪兜底源返回标度错误数据，冒烟测试覆盖不到真实响应）。修复：K线末根收盘价与实时报价背离>25%即整组作废（setK写入前+render渲染前双道校验），中毒标的显示"技术分析数据不可用"而非错误信号，RS池不再被污染。<b>教训：第四兜底源上线前必须用真实数据验证——本次错在我。</b><br>
   <b>v7.15 容错热修（2026-10-22 晚）</b>：修复"整页识别不到数据"——v7.12 起报价链要求腾讯全量对账，但腾讯一步无失败保护：美股开盘时段（21:30 北京）腾讯接口抖动会拖死整条链、render 永不执行。现每批次独立容错：腾讯挂了东财数据照常渲染、本批全灭仅跳过（下轮自动重试），任何单点故障不再导致白屏。<br>
   <b>v7.14 美股盘前支持（2026-10-22 晚）</b>：实测腾讯美股报价不含盘前（时间戳停在常规收盘16:00），东财美股报价含盘前最新成交——报价优先级改为东财优先、腾讯兜底，保留偏差>15%脏数据防线；盘前时段（北京 17:00-21:30 夏令时）卡片显示的是盘前实时价，技术位（支撑/压力/止损）与K线收盘价的偏差属正常现象，开盘后会收敛。<br>
   <b>v7.13 重点前置（2026-10-22 晚）</b>：①机会与持仓区卡片按"可操作性"排序——可动手的（现价在买入区/超跌触发/持仓破位纪律动作）永远在最前，其次持仓压力区止盈/拿稳，再次观望级；②表格只分 A股/美股 两组，组内同规则排序且涨幅高的（反弹的）排前面——打开页面第一屏就是"今天最可能需要操作的标的"，不再有重点混乱。<br>
@@ -257,6 +258,10 @@ function loadQuotesTX(cs){
 }
 function setK(code, bars){
   if(!bars || bars.length < 30){ KMAP[code] = null; return; }
+  // v7.16 脏数据防线：K线末根收盘价与实时报价背离>25%（且>1元）=数据源标度错误，拒绝写入
+  const lc = bars[bars.length-1][1];
+  const qp = quotes[code] && quotes[code].price;
+  if(qp && isFinite(lc) && Math.abs(lc - qp) / qp > 0.25 && Math.abs(lc - qp) > 1){ KMAP[code] = null; return; }
   KMAP[code] = calcAll(
     bars.map(function(b){ return b[1]; }),
     bars.map(function(b){ return b[2]; }),
@@ -463,7 +468,7 @@ function calcAll(closes, highs, lows, opens, vols){
     h250 ? price >= 0.75 * h250 : false,
     price > ma50
   ] : null;
-  return { ma5: ma5, ma10: ma10, ma20: ma20, ma50: ma50, ma60: ma60, ma150: ma150, ma200: ma200, atr: atr, rsi: rsi, K: K, D: D, J: J,
+  return { lastC: closes[n-1], ma5: ma5, ma10: ma10, ma20: ma20, ma50: ma50, ma60: ma60, ma150: ma150, ma200: ma200, atr: atr, rsi: rsi, K: K, D: D, J: J,
            bullPos: bullPos, ma5prev: ma5prev, prevClose: closes[n-2], revYang: revYang,
            revShadow: revShadow, revShrink: revShrink,
            dif: dif, dea: dea, hist: hist, crossUp: crossUp, crossDn: crossDn, histExpanding: histExpanding,
@@ -748,7 +753,10 @@ function render(){
     const price = q.price, pct = q.pct, high = q.high, low = q.low;
     const volratio = q.volratio;
     const isA = s[0].indexOf("us") !== 0;
-    const K = KMAP[s[0]];
+    let K = KMAP[s[0]];
+    if(K && K.lastC && isFinite(K.lastC) && price && Math.abs(K.lastC - price) / price > 0.25 && Math.abs(K.lastC - price) > 1){
+      KMAP[s[0]] = null; K = null;   // v7.16：脏K线整组作废（如DRAM支撑-14.30/20日+1254%即此类），RS池同步解毒
+    }
     if(K) K.price = price;
     if(s[0] === "sh000001" && K && K.ret20 !== null) BENCH_RET20 = K.ret20;
     const r = {ci:i, name:s[1], code:s[0], price:price, pct:pct, high:high, low:low, volratio:volratio, isA:isA, K:K};
