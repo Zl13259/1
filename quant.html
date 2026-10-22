@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.20</title>
+<title>信号监控 v7.21</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.20</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.21</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,7 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.21 K线调度重写（2026-10-23 晨，依据真机截图"指标0/83·K线未加载"）</b>：根因——v7.20熔断在旧并发结构下失效：worker的while循环是同步执行，第1个worker开工瞬间把全部标的入队（其余worker空手），熔断判定时东财请求已全部发出，维护时段仍是83×12s超时队列、腾讯兜底被堵死（实测此时段腾讯源正常）。另有隐藏bug：loadKTX内部末尾吞错，第四源（新浪）从未被真正调用。修复：①开工前东财1次探测——失败全轮直走腾讯，83只不再各等超时；②worker改真·3并发（链式串行+worker间轮转），补抓轮同构；③loadKTX不再吞错，失败正确传导到新浪源。正常时段零影响（探测成功=顺带完成首只加载），预期东财维护时段K线加载<60秒。<b>打分与判定逻辑零改动。</b><br>
   <b>v7.20 主源熔断（2026-10-23 晨，依据真机故障）</b>：东财行情接口（push2/push2his）早间维护时段故障时，旧版每只K线须等东财超时12秒才轮到腾讯兜底（84只×3并发≈5-6分钟），60秒自动刷新又把未完成的重新入队、请求堆积——兜底被超时队列堵死，表现为"抓不到数据"。修复：报价层一批东财失败即熔断后续批次、K线层连挂3只即熔断本轮剩余，失败立即切腾讯。正常时段零影响（东财成功不触发熔断）。<br>
   <b>v7.19 结论层趋势闸门（2026-10-23 晨，依据用户质询）</b>：下跌趋势（六阶段=下跌通道/深跌区）且纯技术分<60的非持仓标的，"✅回踩买点"降级为橙色⚠️"支撑测试区·非买点"——买入区逻辑本身成立（左侧回踩强支撑），但下跌趋势中支撑多为纸支撑，且"—弱势—33分"与"✅买点"同卡矛盾、绿色✅视觉权重大于灰色警示，易误导操作。分值与环境门机制零改动。昨夜实例：Meta 40分/INTC 33分/NVDA 33分（均下跌通道）改显⚠️，特斯拉75分（震荡）维持✅。<b>遗留待验：昨晚纳指-2.6%但页面环境门疑似未开（可能IXIC六阶段被判"震荡"、均线未完全空头）——请用户看一眼表格里纳斯达克行的六阶段列，确认后再定环境门是否加宽。</b><br>
   <b>v7.18 死链修复+精简（2026-10-22 夜，全文件自查）</b>：①<b>修复事件降级链隐藏bug</b>——fetchJSON本就返回解析后JSON，runEvChain却又调一次.json()，导致金十日历源和news.json钩子从上线起就永远失败（异常被catch吞掉，表象被误读为"CORS拦截"）。修复后降级链真正可用，未来GitHub Actions生成news.json即插即用；②事件链去重——catch链里的东财快讯JSONP与EV_SOURCES[0]完全同URL同解析，删重复实现；③quotes对象的turn/amt/vol三字段只写不读，删除；④历史版本说明（v6.4~v7.16）折叠归档，规则文档保持展开；⑤微简化：KSET一行化、renderScan去多余replace（sigmeta每次render前已重置）、s.make()两次调用改一次。<b>打分与判定逻辑零改动，行为不变。</b><br>
@@ -307,38 +308,46 @@ function loadKlines(force){
   const need = KSET.map(function(i){ return LIST[i][0]; }).filter(function(c){
     return force || !kLast[c] || (now - kLast[c]) > K_TTL;
   });
-  let idx = 0;
-  let emFail = 0;   // v7.20 主源熔断：东财K线连挂≥3次，本轮剩余直接走腾讯——防东财故障/维护时段12s超时×N只把兜底请求堵死在队列（2026-10-23晨实测东财push2维护、用户端"抓不到数据"根因）
-  function worker(){
-    const steps = [];
-    while(idx < need.length){
-      (function(c){
-        steps.push((emFail >= 3 ? Promise.reject(new Error("em fused")) : loadKEM(c, now)).catch(function(){ emFail++; SRC.k = "腾讯"; return loadKTX(c, now); }).catch(function(){ return loadKSINA(c, now); }).catch(function(){ /* 保留旧数据 */ })
-          .then(function(){ return new Promise(function(r){ setTimeout(r, 250); }); }));
-      })(need[idx++]);
+  if(!need.length) return Promise.resolve();
+  // v7.21：开工前东财1次探测——成功=顺带完成首只加载；失败=全轮跳过东财直走腾讯（维护时段不再83只各等12s超时）
+  return loadKEM(need[0], now).then(function(){ return true; }, function(){ return false; }).then(function(emUp){
+    SRC.k = emUp ? "东财" : "腾讯";
+    const wN = 3;
+    function worker(w){
+      let p = Promise.resolve();
+      for(let i = w; i < need.length; i += wN){
+        (function(c){
+          p = p.then(function(){
+            if(kLast[c] && (now - kLast[c]) < K_TTL) return;   // 探测已顺带加载，跳过
+            return (emUp ? loadKEM(c, now) : Promise.reject(new Error("em probe down")))
+              .catch(function(){ return loadKTX(c, now); })
+              .catch(function(){ return loadKSINA(c, now); })
+              .catch(function(){ /* 三源皆败：保留旧数据，下轮TTL再试 */ });
+          }).then(function(){ return new Promise(function(r){ setTimeout(r, 200); }); });
+        })(need[i]);
+      }
+      return p;
     }
-    return Promise.all(steps);
-  }
-  const ws = [];
-  for(let w = 0; w < 3; w++) ws.push(worker());   // v7.4：5→3并发，防腾讯限流导致半数K线空白
-  return Promise.all(ws).then(function(){
-    // v7.4：周期末补抓一轮本周期仍缺失的（慢速单发），减少"指标45/83"式半空白
+    const ws = [];
+    for(let w = 0; w < wN; w++) ws.push(worker(w));   // v7.21真·3并发：worker内链式串行、worker间轮转（旧版while同步抢标=第1个worker全量并发，熔断失效根因）
+    return Promise.all(ws);
+  }).then(function(){
+    // 周期末补抓一轮本周期仍缺失的（慢速单发，同构；不回东财——本轮探测已定性）
     const miss2 = need.filter(function(c){ return !KMAP[c]; });
     if(!miss2.length) return;
     let i2 = 0;
     function slow(){
-      const steps = [];
+      let p = Promise.resolve();
       while(i2 < miss2.length){
         (function(c){
-          steps.push((emFail >= 3 ? Promise.reject(new Error("em fused")) : loadKEM(c, now)).catch(function(){ emFail++; return loadKTX(c, now); }).catch(function(){ return loadKSINA(c, now); }).catch(function(){})
-            .then(function(){ return new Promise(function(r){ setTimeout(r, 300); }); }));
+          p = p.then(function(){
+            return loadKTX(c, now).catch(function(){ return loadKSINA(c, now); }).catch(function(){});
+          }).then(function(){ return new Promise(function(r){ setTimeout(r, 250); }); });
         })(miss2[i2++]);
       }
-      return Promise.all(steps);
+      return p;
     }
-    const s2 = [];
-    for(let w = 0; w < 2; w++) s2.push(slow());
-    return Promise.all(s2);
+    return Promise.all([slow(), slow()]);
   });
 }
 function loadKEM(c, now){
@@ -353,6 +362,7 @@ function loadKEM(c, now){
 }
 function loadKTX(c, now){
   // v7.10：美股K线三源兜底——ifzq(.OQ) → ifzq(原码) → proxy.finance.qq.com镜像（NVDA/DRAM无数据的修复）
+  // v7.21：不再内部吞错——失败向外抛出，由调用链继续走新浪第四源（旧版末尾.catch吞错导致新浪源从未被调用）
   const tq = c.indexOf("us") === 0 ? c + ".OQ" : c;
   function one(url, key){
     return fetchJSON(url, 12000).then(function(j){
@@ -360,18 +370,18 @@ function loadKTX(c, now){
       const arr = d.qfqday || d.day || [];
       const bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5], k[0] ]; });   // v7.17：末根保留日期供kSanity校验
       if(!bars.length) throw new Error("empty");
-      kLast[c] = now; setK(c, bars);
+      kLast[c] = now; SRC.k = "腾讯"; setK(c, bars);
     });
   }
   const p1 = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now();
   if(c === tq) return one(p1, tq).catch(function(){
     return one("https://proxy.finance.qq.com/ifzqgtimg/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now(), tq);
-  }).catch(function(){});
+  });
   return one(p1, tq).catch(function(){
     return one("https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=" + c + ",day,,,320,qfq&_=" + Date.now(), c);
   }).catch(function(){
     return one("https://proxy.finance.qq.com/ifzqgtimg/appstock/app/fqkline/get?param=" + tq + ",day,,,320,qfq&_=" + Date.now(), tq);
-  }).catch(function(){ /* 三源皆败：保留旧数据，下轮TTL再试 */ });
+  });
 }
 // ---------- 指标计算与评分（v5.1体系原样保留） ----------
 function calcAll(closes, highs, lows, opens, vols){
@@ -639,7 +649,7 @@ function loadKSINA(c, now){
       const arr = window["d"];
       if(!Array.isArray(arr) || arr.length < 30){ rej(new Error("no data")); return; }
       const bars = arr.map(function(x){ return [ +x.o, +x.c, +x.h, +x.l, +x.v ]; });
-      kLast[c] = now; setK(c, bars); res();
+      kLast[c] = now; SRC.k = "新浪"; setK(c, bars); res();
     }, 200); };
     s.onerror = function(){ if(done) return; done = true; clean(); rej(new Error("err")); };
     s.src = "https://stock.finance.sina.com.cn/usstock/api/jsonp_v2.php/var%20d=/US_MinKService.getDailyK?symbol=" + sym;
