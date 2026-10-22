@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v7.11</title>
+<title>信号监控 v7.13</title>
 <style>
   /* v6.0 Apple Design：纯黑底/石墨卡片/单一蓝强调色/红涨绿跌(苹果深色系統色)/0.5px发丝分割线/胶囊按钮 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#000;color:#fff;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -51,7 +51,7 @@
   <span style="color:#98989d"> ｜ </span>
   <a href="./quant.html" class="on">🤖 信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.11</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#98989d;font-weight:400">v7.13</span> <span id="clock" style="font-size:12px;color:#98989d"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -78,6 +78,8 @@
   <tbody></tbody>
 </table>
 <div class="note">
+  <b>v7.13 重点前置（2026-10-22 晚）</b>：①机会与持仓区卡片按"可操作性"排序——可动手的（现价在买入区/超跌触发/持仓破位纪律动作）永远在最前，其次持仓压力区止盈/拿稳，再次观望级；②表格只分 A股/美股 两组，组内同规则排序且涨幅高的（反弹的）排前面——打开页面第一屏就是"今天最可能需要操作的标的"，不再有重点混乱。<br>
+  <b>v7.12 双源校验（2026-10-22 晚）</b>：①报价双源校验——东财与腾讯偏差>15%（且>0.5元）自动采信腾讯并在状态栏显示"校验修正N"（单源脏数据防线，DRAM标度异常即此类）；②美股K线第四兜底源：新浪美股日线（script标签直读，今日实测对DRAM返回完整历史）。<br>
   <b>v7.11 环境门豁免（2026-10-22）</b>：环境门不再一刀切——①<b>超跌反转触发（阶段③）</b>豁免（左侧底部信号本来就是为弱市设计的，冻结它=机制自相矛盾）；②<b>强势回踩</b>豁免（池内20日强度前20% 且 现价站上MA60 = 业绩/资金双强的真强势股）。豁免标显示浅蓝"环境豁免"标签，信号区提示豁免数量；其余标的仍-20封顶79。注意：豁免只恢复"可见性"，新开仓仓位纪律仍建议减半，且账本级纪律（证伪线/止损线）永远高于页面结论。<br>
   <b>v7.10 修复（2026-10-22 午后，依据真机截图）</b>：①修复表格整体空白——v7.8 的📌开关引用了 renderCards 内部变量 pinAll，表格行在 render() 中执行时越界抛异常致整张表空白；钉住清单已提升为全局函数 getPins()，两处共用；②美股K线三源兜底（ifzq.OQ→ifzq原码→proxy.finance.qq.com 镜像）+ 超时放宽至12s——修复 NVDA/DRAM"技术分析数据加载中"。<br>
   <b>v7.9 事件源修复（2026-10-22）</b>：重要事件区新增主源——东财官网搜索 JSONP（其自身前端公开接口，每轮 1 次低频请求，关键词按自选板块轮换：存储/半导体/AI/美联储/锂电池/稀土/黄金/芯片/央行/关税，事件区顶部显示当前关键词）；降级链：搜索JSONP→快讯JSONP→fetch链+news.json→手动粘贴区。<br>
@@ -114,15 +116,12 @@
 const LIST = window.STOCK_LIST || [];
 function isHold(code){ return (window.HOLD_CODES || []).indexOf(code) >= 0; }
 function sectorOf(code){ return (window.SECTORS && window.SECTORS[code]) || "其他"; }
-const GROUPS = [
-  {name:"A股 · 持仓/重点", idx:[0,1,2,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21]},
-  {name:"A股 · 自选", idx:[22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50]},
-  {name:"A股 · 自选ETF", idx:[51,52,53,54,55,56,57,58,59,60]},
-  {name:"A股 · 指数", idx:[61,62,63]},
-  {name:"美股 · 持仓/重点", idx:[3,4,5,64,65,66,67,68,69,73,74]},
-  {name:"美股 · 指数", idx:[70,71,72]},
-  {name:"A股 · 板块风向标（温度计·不入机会池）", idx:[75,76,77,78,79,80,81,82]}
-];
+// v7.13：只分 A股/美股 两组（组内按可操作性→涨幅→总分排序，越有操作价值的越靠前）
+const GROUPS = (function(){
+  const aIdx = [], uIdx = [];
+  for(let i = 0; i < LIST.length; i++){ (LIST[i][0].indexOf("us") === 0 ? uIdx : aIdx).push(i); }
+  return [{name:"A股", idx:aIdx}, {name:"美股", idx:uIdx}];
+})();
 const KSET = [];
 for(let i = 0; i < LIST.length; i++) KSET.push(i);
 let auto = true, timer = null, doDiff = false, MACRO_ON = false, BENCH_RET20 = null;
@@ -138,6 +137,7 @@ let KMAP = {};        // code -> calcAll结果
 let kLast = {};       // code -> K线加载时间戳（内存TTL缓存，轻量可靠）
 const K_TTL = 5 * 60e3;
 const SRC = {q: "东财", k: "东财"};
+let emGot = {};   // v7.12 东财报价暂存（双源校验用）
 function emSecid(c){
   if(c.indexOf("us") === 0){
     const s = c.slice(2);
@@ -189,9 +189,19 @@ function loadQuotes(){
   let chain = Promise.resolve();
   groups.forEach(function(cs){
     chain = chain.then(function(){
-      return loadQuotesEM(cs).then(function(missing){
-        if(missing.length === cs.length) SRC.q = "腾讯";
-        if(missing.length) return loadQuotesTX(missing);
+      return loadQuotesEM(cs).then(function(){
+        // v7.12 双源校验：东财与腾讯偏差>15%（且>0.5元）时采信腾讯并计数——防单源脏数据（如DRAM标度异常）
+        return loadQuotesTX(cs).then(function(txGot){
+          let nEM = 0, nFix = 0;
+          cs.forEach(function(c){
+            const e = emGot[c], t = txGot[c];
+            if(e) nEM++;
+            if(t && t.price) quotes[c] = t;   // 腾讯为基准
+            else if(e) quotes[c] = e;
+            if(e && t && t.price && Math.abs(e.price - t.price) / t.price > 0.15 && Math.abs(e.price - t.price) > 0.5) nFix++;
+          });
+          SRC.q = nEM === 0 ? "腾讯" : (nFix ? "东财·校验修正" + nFix : "东财");
+        });
       }).then(function(){ return new Promise(function(r){ setTimeout(r, 150); }); });
     });
   });
@@ -217,23 +227,26 @@ function loadQuotesEM(cs){
         vol: d.f5 ? +d.f5 : null, amt: d.f6 ? +d.f6 : null, turn: d.f8 ? +d.f8 : null,
         volratio: (isFinite(+d.f10) && d.f10 > 0 && d.f10 < 50) ? +d.f10 : null };
     });
+    emGot = got;   // v7.12：暂存东财结果，供双源偏差校验
     const missing = [];
     cs.forEach(function(c){ if(got[c]) quotes[c] = got[c]; else missing.push(c); });
     return missing;
-  }, function(){ return cs.slice(); });
+  }, function(){ emGot = {}; return cs.slice(); });
 }
 function loadQuotesTX(cs){
+  const got = {};
   return fetchGBK("https://qt.gtimg.cn/q=" + cs.join(",") + "&_=" + Date.now()).then(function(txt){
     const re = /v_([a-z]{2}[0-9A-Za-z.]+)="([^"]*)"/g; let m;
     while((m = re.exec(txt))){
       const f = m[2].split("~");
       const num = function(v){ const n = parseFloat(v); return isFinite(n) ? n : null; };
       const price = num(f[3]), pre = num(f[4]);
-      quotes[m[1]] = { price: price,
+      got[m[1]] = { price: price,
         pct: (price != null && pre) ? (price - pre) / pre * 100 : null,
         high: num(f[33]), low: num(f[34]), vol: num(f[36]), amt: num(f[37]), turn: num(f[38]),
         volratio: (num(f[49]) > 0 && num(f[49]) < 50) ? num(f[49]) : null };
     }
+    return got;
   });
 }
 function setK(code, bars){
@@ -256,7 +269,7 @@ function loadKlines(force){
     const steps = [];
     while(idx < need.length){
       (function(c){
-        steps.push(loadKEM(c, now).catch(function(){ SRC.k = "腾讯"; return loadKTX(c, now); }).catch(function(){ /* 保留旧数据 */ })
+        steps.push(loadKEM(c, now).catch(function(){ SRC.k = "腾讯"; return loadKTX(c, now); }).catch(function(){ return loadKSINA(c, now); }).catch(function(){ /* 保留旧数据 */ })
           .then(function(){ return new Promise(function(r){ setTimeout(r, 250); }); }));
       })(need[idx++]);
     }
@@ -273,7 +286,7 @@ function loadKlines(force){
       const steps = [];
       while(i2 < miss2.length){
         (function(c){
-          steps.push(loadKEM(c, now).catch(function(){ return loadKTX(c, now); }).catch(function(){})
+          steps.push(loadKEM(c, now).catch(function(){ return loadKTX(c, now); }).catch(function(){ return loadKSINA(c, now); }).catch(function(){})
             .then(function(){ return new Promise(function(r){ setTimeout(r, 300); }); }));
         })(miss2[i2++]);
       }
@@ -547,6 +560,48 @@ function togglePin(code){
   try{ localStorage.setItem("q_pinned_v1", JSON.stringify(p)); }catch(e){}
   render();
 }
+// v7.13 可操作性分级：0=可动手(买入区/超跌触发/持仓破位或回踩加仓) 1=持仓压力区止盈 2=持仓拿稳 3=等站上买入区 4=冲压力区不追 5=观望 6=破止损 7=环境门压制 8=否决 9=无数据
+function actTier(r){
+  const K2 = r.K; if(!K2) return 9;
+  const buyLo = K2.sup1 ? K2.sup1 - 0.5 * K2.atr : null;
+  const buyHi = K2.sup1 ? K2.sup1 + 0.5 * K2.atr : null;
+  const stop = K2.sup1 ? K2.sup1 - K2.atr : null;
+  const sellLo = K2.res1 ? Math.min(K2.res1, K2.res2 || K2.res1) : null;
+  if(r.veto) return 8;
+  if(r.rev === 3) return 0;
+  if(isHold(r.code)){
+    if(stop && r.price < stop) return 0;
+    if(buyLo && r.price >= buyLo && r.price <= buyHi) return 0;
+    if(sellLo && r.price >= sellLo) return 1;
+    return 2;
+  }
+  if(r.envGate === true) return 7;
+  if(stop && r.price < stop) return 6;
+  if(buyLo && r.price < buyLo) return 3;
+  if(buyLo && r.price <= buyHi) return 0;
+  if(sellLo && r.price >= sellLo) return 4;
+  return 5;
+}
+// v7.12 美股K线第四源：新浪美股日线（script标签加载，响应以 var d=([...]) 形式写入全局）
+function loadKSINA(c, now){
+  if(c.indexOf("us") !== 0) return Promise.reject(new Error("us only"));
+  const sym = c.slice(2).toLowerCase();
+  return new Promise(function(res, rej){
+    const s = document.createElement("script");
+    let done = false;
+    const t = setTimeout(function(){ if(!done){ done = true; clean(); rej(new Error("timeout")); } }, 6000);
+    function clean(){ clearTimeout(t); try{ delete window["d"]; }catch(e){ window["d"] = undefined; } if(s.parentNode) s.parentNode.removeChild(s); }
+    s.onload = function(){ if(done) return; setTimeout(function(){ if(done) return; done = true; clean();
+      const arr = window["d"];
+      if(!Array.isArray(arr) || arr.length < 30){ rej(new Error("no data")); return; }
+      const bars = arr.map(function(x){ return [ +x.o, +x.c, +x.h, +x.l, +x.v ]; });
+      kLast[c] = now; setK(c, bars); res();
+    }, 200); };
+    s.onerror = function(){ if(done) return; done = true; clean(); rej(new Error("err")); };
+    s.src = "https://stock.finance.sina.com.cn/usstock/api/jsonp_v2.php/var%20d=/US_MinKService.getDailyK?symbol=" + sym;
+    document.head.appendChild(s);
+  });
+}
 // v7.5 人话解读：把指标翻译成一句能看懂的话
 function plainLine(r){
   const K2 = r.K; if(!K2) return "";
@@ -612,8 +667,10 @@ function renderCards(rows){
   near.sort(function(a,b){ return b.total - a.total; });
   near.slice(0,5).forEach(function(r){ r.nearMiss = true; picked.push(r); });
   picked.sort(function(a,b){
-    const ha = isHold(a.code) ? 1 : 0, hb = isHold(b.code) ? 1 : 0;
-    if(ha !== hb) return ha - hb;
+    const ta = (a.actT === undefined ? 9 : a.actT), tb = (b.actT === undefined ? 9 : b.actT);
+    if(ta !== tb) return ta - tb;   // v7.13：越有操作价值的越靠前
+    const pa = (a.pinned || isHold(a.code)) ? 1 : 0, pb = (b.pinned || isHold(b.code)) ? 1 : 0;
+    if(pa !== pb) return pb - pa;
     return (b.total||0) - (a.total||0);
   });
   picked.forEach(function(r){
@@ -765,13 +822,23 @@ function render(){
   if(breadthEl) breadthEl.innerHTML = "🌡️ 池内情绪：上涨 <b style=\"color:#ff453a\">" + advN + "</b> / 下跌 <b style=\"color:#30d158\">" + decN +
     "</b>｜20日新高 " + nhN + " · 新低 " + nlN + "｜宽度 " + (rows.length ? Math.round(advN / rows.length * 100) : 0) + "%";
   MACRO_ON = EV_FEED.macro;
+  rows.forEach(function(r){ r.actT = actTier(r); });
   renderCards(rows);
   const pinList = getPins();   // v7.10：表格行📌开关使用的钉住清单
   GROUPS.forEach(function(g){
     const trg = document.createElement("tr");
     trg.innerHTML = '<td colspan="11" class="grp">▸ ' + g.name + "</td>";
     tb.appendChild(trg);
-    g.idx.forEach(function(i){
+    g.idx.slice().sort(function(ia, ib){
+      const ra = rows[ia], rb = rows[ib];
+      if(!ra || !rb) return 0;
+      const ta = (ra.actT === undefined ? 9 : ra.actT), tb = (rb.actT === undefined ? 9 : rb.actT);
+      if(ta !== tb) return ta - tb;
+      const pa = (rb.pct === null || rb.pct === undefined) ? -999 : rb.pct;
+      const qa = (ra.pct === null || ra.pct === undefined) ? -999 : ra.pct;
+      if(pa !== qa) return pa - qa;
+      return (rb.total||0) - (ra.total||0);
+    }).forEach(function(i){
       const r = rows[i];
       if(!r) return;
       const cls = r.pct > 0 ? "up" : r.pct < 0 ? "dn" : "";
