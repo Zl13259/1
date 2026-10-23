@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v8.16</title>
+<title>信号监控 v8.17</title>
 <style>
   /* v8.2 GitHub Primer配色：纯白画布#fff/次级面板#f6f8fa/边框#d1d9e0/强调蓝#0969da/成功绿#1a7f37/危险红#cf222e/注意橙#9a6700·红涨绿跌不变 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#fff;color:#1f2328;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -57,7 +57,7 @@
   <span style="color:#59636e"> ｜ </span>
   <a href="./quant.html" class="on">信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.16</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.17</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -91,6 +91,7 @@
   <details style="margin-top:4px">
     <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.2（纯档案，点击展开，不影响任何功能）</summary>
     <div style="margin-top:6px">
+  <b>v8.17 信号区批量去重（2026-10-23 12:40，用户"这些太重复了"截图）</b>：①大涨/大跌异动≥3只合并为一条批量汇总（名单+涨跌幅内联，明细看表格）——修复8条"大跌-5~-11%：异动"刷屏；②同一只票的"深跌底部区+超跌"与"🔵阶段②企稳"两条信号合并为一条（创业板/上证/亿纬/兆易/宁德/300ETF每只都成双的刷屏）；③板块联动合并的匹配词收窄（大涨/大跌已被批量合并接管，不再进板块桶）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.16 废除温度计特殊身份（2026-10-23 11:50，用户裁决"温度计没用可删"）</b>：8只板块龙头（茅台/美的/平安/海油/神华/迈瑞/东财/比亚迪）与普通股票完全同权——可入机会区（≥80/观察级按分数正常入选）、正常输出买卖结论、环境门不再豁免、可显示⭐、表格"温"标记删除；quant.html内thermo相关代码全清（window.THERMOMETER留在list.js但已无消费方，无害）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.15 表头自定义排序（2026-10-23 11:45，用户需求"按得分/RS排名"）</b>：现价/涨幅/20日%/RS/技术/反转突破/总分/RSI14/52周位 九列可点击排序，再点切换升降序，表头显示▲▼；不点时维持默认"可操作性tier"排序；组内（A股/美股）排序、空值沉底、同值比总分。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.14 指数出池+温度计结论中立化（2026-10-23 11:40，截图实锤）</b>：①<b>纯指数排除出机会区</b>——上证/创业板/纳指/标普/道指不可交易，职责是环境门温度计；旧版给上证发"支撑测试区+止损25516"结论且因tier0排首屏；表格保留（环境门判定源不受影响），可交易ETF（半导体ETF等）不受影响；②<b>温度计龙头结论中立化</b>——v7.3只改等级徽章漏了结论行，迈瑞仍输出"考虑买入"；现统一输出"只看风格风向不生成买卖结论"；③无压力位（创60日新高）时"冲到—考虑卖出"残句改为"上方无明确压力带，用移动止盈"。<b>打分与判定逻辑零改动。</b><br>
@@ -1205,10 +1206,13 @@ function render(){
       if(isHold(r.code)) addSig("info", r.name, "状态 " + fmt(r.price) + "(" + (r.pct > 0 ? "+" : "") + fmt(r.pct) + "%)" + (r.stage ? "｜阶段:" + r.stage.name : "｜指标加载中") + (r.K ? "｜RSI:" + fmt(r.K.rsi,0) : ""), r.code);
       if(r.veto) addSig("crit", r.name, "🚫一票否决生效中：" + r.veto.reason + "——所有买入类信号冻结，卖出/止损纪律不受影响", r.code);
       if(r.total !== null && r.total >= 90 && !r.veto) addSig("info", r.name, "🔥综合" + r.total + "分：近期交易候选——等回踩支撑或突破确认再动手", r.code);
+      const deepBottom = r.stage && r.stage.id === 1 && r.rev >= 1;
       if(r.rev === 3 && !r.veto) addSig("warn", r.name, "🔵超跌反转触发：" + (K2.ma60 && r.price < K2.ma60 ? "MA60下方=下跌趋势中反弹，仓位减半试探；" : "可小仓试探（仓位纪律优先）；") + "止损=" + fmt(K2.ll20 - K2.atr) + "（前低-1×ATR）", r.code);
-      if(r.rev === 2 && !r.veto) addSig("info", r.name, "🔵超跌企稳迹象（阶段②）：缩量收阳/长下影，加入观察，勿提前动手", r.code);
+      // v8.17：深跌底部区+阶段②合并为一条（旧版每只票两条近乎重复的信号刷屏：创业板/上证/亿纬/兆易/宁德/300ETF各两条）
+      else if(deepBottom && r.rev === 2 && !r.veto) addSig("info", r.name, "🔵深跌底部区+超跌企稳迹象（阶段②）：缩量收阳/长下影——通道重点观察，等阶段③触发再动手", r.code);
+      else if(r.rev === 2 && !r.veto) addSig("info", r.name, "🔵超跌企稳迹象（阶段②）：缩量收阳/长下影，加入观察，勿提前动手", r.code);
       if(r.stage && r.stage.id === 5) addSig("warn", r.name, "阶段=高位滞涨（价高+柱体收缩）：防顶背离，持仓考虑分批止盈", r.code);
-      if(r.stage && r.stage.id === 1 && r.rev >= 1) addSig("info", r.name, "进入深跌底部区+超跌：🔵通道重点观察，等阶段③触发再动手", r.code);
+      if(deepBottom && r.rev < 3) addSig("info", r.name, "进入深跌底部区+超跌：🔵通道重点观察，等阶段③触发再动手", r.code);
       if(!isHold(r.code)) { if(Math.abs(r.pct) >= 5) addSig("warn", r.name, (r.pct > 0 ? "大涨" : "大跌") + fmt(r.pct) + "%：异动", r.code); return; }
       // 信号引擎
       if(isHold(r.code)){
@@ -1248,11 +1252,30 @@ function render(){
 }
 
 function renderSignals(){
+  // v8.17 批量异动合并：大涨/大跌异动>=3只时合并为一条汇总（系统性波动日个案不逐一报警；2026-10-23截图：8条"大跌-5~-11%：异动"刷屏）
+  (function(){
+    const keep = [], up = [], dn = [];
+    SIGS.forEach(function(s){
+      const m = s.text.match(/(大涨|大跌)([-+]?\d+\.\d+)%：(?:盘中异动，查消息|异动)/);
+      if(m){ (m[1] === "大涨" ? up : dn).push({sig: s, name: s.stk, pct: m[2]}); }
+      else keep.push(s);
+    });
+    function batch(arr, word){
+      if(arr.length >= 3){
+        const names = arr.map(function(x){ return x.name + (word === "大涨" ? "+" : "") + x.pct + "%"; }).join(" / ");
+        keep.push({sev: word === "大跌" ? "warn" : "info", stk: "批量异动", code: "",
+          text: word + "异动共" + arr.length + "只：" + names + "——系统性波动，个案不逐一报警（明细见表格涨幅列）",
+          rank: word === "大跌" ? 1 : 2});
+      } else { arr.forEach(function(x){ keep.push(x.sig); }); }
+    }
+    batch(up, "大涨"); batch(dn, "大跌");
+    SIGS = keep;
+  })();
   // 板块联动合并：同板块同日>=3只齐发同类信号时合并为一条（防同源信号刷屏）
   (function(){
     const keep = [], buckets = {};
     SIGS.forEach(function(s){
-      const m = s.text.match(/(大涨|大跌|MACD金叉|MACD死叉|RSI14=)/);
+      const m = s.text.match(/(MACD金叉|MACD死叉|RSI14=)/);
       if(m && s.code && s.code !== ""){
         const key = sectorOf(s.code) + "|" + m[1];
         (buckets[key] = buckets[key] || []).push(s);
