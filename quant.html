@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v8.17</title>
+<title>信号监控 v8.18</title>
 <style>
   /* v8.2 GitHub Primer配色：纯白画布#fff/次级面板#f6f8fa/边框#d1d9e0/强调蓝#0969da/成功绿#1a7f37/危险红#cf222e/注意橙#9a6700·红涨绿跌不变 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#fff;color:#1f2328;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -57,7 +57,7 @@
   <span style="color:#59636e"> ｜ </span>
   <a href="./quant.html" class="on">信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.17</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.18</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -91,6 +91,7 @@
   <details style="margin-top:4px">
     <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.2（纯档案，点击展开，不影响任何功能）</summary>
     <div style="margin-top:6px">
+  <b>v8.18 代码审查修复（2026-10-23 午后，Kimi 全量审查）：环境门补急跌条件+新浪K线源并发覆盖修复+报价陈旧标记+冗余清理</b>：①<b>环境门加宽</b>——指数六阶段=下跌通道/深跌底部区 <b>或</b> 指数当日跌幅≤-2% 即触发（解决 v7.19 遗留：纳指-2.6% 但 IXIC 均线未完全空头被判"震荡"、门漏开——急跌初期均线滞后，单靠六阶段慢半拍；与一票否决"大盘同跌≤-2%豁免"同一阈值口径，不新增参数）；②<b>修复新浪K线源并发覆盖 bug</b>——4 worker 并行时每次调用都写同一个 window.d 全局变量，两只美股同时走新浪兜底会互相覆盖数据（kSanity 有一定概率拦不住），改为每次调用唯一全局名；③<b>报价陈旧标记</b>——记录每只标的行情刷新时间，交易时段内超过10分钟未更新则在状态栏计数提示（"其中N只陈旧"），防止源故障时旧价静默充当现价；④<b>冗余清理</b>——删除 KSET 数组（全文件仅一处消费，直接用 LIST 映射，省一层间接）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.17 信号区批量去重（2026-10-23 12:40，用户"这些太重复了"截图）</b>：①大涨/大跌异动≥3只合并为一条批量汇总（名单+涨跌幅内联，明细看表格）——修复8条"大跌-5~-11%：异动"刷屏；②同一只票的"深跌底部区+超跌"与"🔵阶段②企稳"两条信号合并为一条（创业板/上证/亿纬/兆易/宁德/300ETF每只都成双的刷屏）；③板块联动合并的匹配词收窄（大涨/大跌已被批量合并接管，不再进板块桶）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.16 废除温度计特殊身份（2026-10-23 11:50，用户裁决"温度计没用可删"）</b>：8只板块龙头（茅台/美的/平安/海油/神华/迈瑞/东财/比亚迪）与普通股票完全同权——可入机会区（≥80/观察级按分数正常入选）、正常输出买卖结论、环境门不再豁免、可显示⭐、表格"温"标记删除；quant.html内thermo相关代码全清（window.THERMOMETER留在list.js但已无消费方，无害）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.15 表头自定义排序（2026-10-23 11:45，用户需求"按得分/RS排名"）</b>：现价/涨幅/20日%/RS/技术/反转突破/总分/RSI14/52周位 九列可点击排序，再点切换升降序，表头显示▲▼；不点时维持默认"可操作性tier"排序；组内（A股/美股）排序、空值沉底、同值比总分。<b>打分与判定逻辑零改动。</b><br>
@@ -157,13 +158,12 @@ const LIST = window.STOCK_LIST || [];
 function isHold(code){ return (window.HOLD_CODES || []).indexOf(code) >= 0; }
 function sectorOf(code){ return (window.SECTORS && window.SECTORS[code]) || "其他"; }
 // v7.13：只分 A股/美股 两组（组内按可操作性→涨幅→总分排序，越有操作价值的越靠前）
-// v7.22：GROUPS/KSET 改为可重建——支持运行期添加/删除自选标的（见"自定义标的"区）
-let GROUPS = [], KSET = [];
+// v7.22：GROUPS 改为可重建——支持运行期添加/删除自选标的；v8.18：KSET 冗余数组删除（仅一处消费，直接走 LIST）
+let GROUPS = [];
 function rebuildIndex(){
   const aIdx = [], uIdx = [];
   for(let i = 0; i < LIST.length; i++){ (LIST[i][0].indexOf("us") === 0 ? uIdx : aIdx).push(i); }
   GROUPS = [{name:"A股", idx:aIdx}, {name:"美股", idx:uIdx}];
-  KSET = LIST.map(function(s, i){ return i; });
 }
 rebuildIndex();
 let auto = true, timer = null, doDiff = false, MACRO_ON = false, BENCH_RET20 = null;
@@ -175,6 +175,7 @@ function fmt(n, d){ if(!isFinite(n)) return "—"; return (+n).toFixed(d === und
 // ===== 数据层 v7.1：东方财富主源（JSONP script标签跨域·不依赖CORS）→ 腾讯自动降级 =====
 // 选型 2026-10-22：东财 push2his(K线320根,实测连通)+push2 ulist(批量报价)；统一secid：沪1./深0./美股105./全球指数100.
 let quotes = {};      // code -> {price,pct,high,low,volratio,turn,vol,amt}
+let qAt = {};       // v8.18：每只标的行情刷新时间戳——交易时段内>10分钟未更新视为陈旧（源故障时旧价不再静默充当现价）
 let KMAP = {};        // code -> calcAll结果
 let kLast = {};       // code -> K线加载时间戳（内存TTL缓存，轻量可靠）
 const K_TTL = 5 * 60e3;
@@ -241,11 +242,11 @@ function loadQuotes(){
             cs.forEach(function(c){
               const e = emGot[c], t = txGot[c];
               if(e) nEM++;
-              if(t && t.price) quotes[c] = t;
+              if(t && t.price){ quotes[c] = t; qAt[c] = Date.now(); }
               if(e && e.price){
                 const dev = (t && t.price) ? Math.abs(e.price - t.price) / t.price : 0;
                 if(dev > 0.15 && Math.abs(e.price - t.price) > 0.5){ nFix++; }   // 东财脏数据（标度异常）：维持腾讯
-                else quotes[c] = e;
+                else { quotes[c] = e; qAt[c] = Date.now(); }
               }
             });
             SRC.q = nEM === 0 ? "腾讯" : (nFix ? "东财·校验修正" + nFix : "东财");
@@ -276,7 +277,7 @@ function loadQuotesEM(cs){
         volratio: (isFinite(+d.f10) && d.f10 > 0 && d.f10 < 50) ? +d.f10 : null };
     });
     emGot = got;   // v7.12：暂存东财结果，供双源偏差校验
-    cs.forEach(function(c){ if(got[c]) quotes[c] = got[c]; });
+    cs.forEach(function(c){ if(got[c]){ quotes[c] = got[c]; qAt[c] = Date.now(); } });
   }, function(){ emGot = {}; });
 }
 function loadQuotesTX(cs){
@@ -346,7 +347,7 @@ function loadKlines(force){
 }
 function loadKlinesBody(force){
   const now = Date.now();
-  const need = KSET.map(function(i){ return LIST[i][0]; }).filter(function(c){
+  const need = LIST.map(function(s){ return s[0]; }).filter(function(c){
     return force || !kLast[c] || (now - kLast[c]) > K_TTL;
   });
   if(!need.length) return Promise.resolve();
@@ -886,19 +887,22 @@ function actTier(r){
 function loadKSINA(c, now){
   if(c.indexOf("us") !== 0) return Promise.reject(new Error("us only"));
   const sym = c.slice(2).toLowerCase();
+  // v8.18修复：4 worker并行时每次调用都写同一个window.d全局变量，两只美股同时兜底会互相覆盖数据（kSanity有一定概率拦不住）——改每次调用唯一全局名
+  const gname = "__sinak" + (__jpN++);
   return new Promise(function(res, rej){
     const s = document.createElement("script");
     let done = false;
     const t = setTimeout(function(){ if(!done){ done = true; clean(); rej(new Error("timeout")); } }, 6000);
-    function clean(){ clearTimeout(t); try{ delete window["d"]; }catch(e){ window["d"] = undefined; } if(s.parentNode) s.parentNode.removeChild(s); }
+    function clean(){ clearTimeout(t); try{ delete window[gname]; }catch(e){ window[gname] = undefined; } if(s.parentNode) s.parentNode.removeChild(s); }
     s.onload = function(){ if(done) return; setTimeout(function(){ if(done) return; done = true; clean();
-      const arr = window["d"];
+      const arr = window[gname];
       if(!Array.isArray(arr) || arr.length < 30){ rej(new Error("no data")); return; }
       const bars = arr.map(function(x){ return [ +x.o, +x.c, +x.h, +x.l, +x.v ]; });
       kLast[c] = now; SRC.k = "新浪"; setK(c, bars); res();
     }, 200); };
-    s.onerror = function(){ if(done) return; done = true; clean(); rej(new Error("err")); };
-    s.src = "https://stock.finance.sina.com.cn/usstock/api/jsonp_v2.php/var%20d=/US_MinKService.getDailyK?symbol=" + sym;
+    s.onerror = function(){ if(done) return; clean2(); };
+    function clean2(){ if(done) return; done = true; clean(); rej(new Error("err")); }
+    s.src = "https://stock.finance.sina.com.cn/usstock/api/jsonp_v2.php/var%20" + gname + "=/US_MinKService.getDailyK?symbol=" + sym;
     document.head.appendChild(s);
   });
 }
@@ -1064,6 +1068,13 @@ function trendText(K2){
   return '<div class="ln">' + parts.join("｜") + '</div>';
 }
 
+function sessOpen(isA){
+  // v8.18：报价陈旧判定用——仅在应当有实时行情的时段内才把">10分钟未更新"计为陈旧
+  const d = new Date(), day = d.getDay(), m = d.getHours() * 60 + d.getMinutes();
+  if(day === 0 || day === 6) return false;
+  if(isA) return (m >= 570 && m <= 690) || (m >= 780 && m <= 900);   // A股 9:30-11:30 / 13:00-15:00
+  return m >= 1290 || m <= 240;                                      // 美股常规时段（北京时间 21:30-次日4:00）
+}
 function render(){
   SIGS = [];
   const tb = document.querySelector("#tbl tbody");
@@ -1123,8 +1134,9 @@ function render(){
     }
   });
   // v7.2 大盘环境门：指数六阶段=下跌通道时，非持仓标的总分-20并封顶79（高分只代表抗跌，不代表买点；持仓止损纪律不受影响）
-  const gateA = shRow && shRow.stage && (shRow.stage.id === 1 || shRow.stage.id === 6);
-  const gateU = ixRow && ixRow.stage && (ixRow.stage.id === 1 || ixRow.stage.id === 6);
+  // v8.18 环境门加宽：六阶段=下跌通道/深跌底部区，或指数当日跌幅≤-2%（急跌初期均线滞后、六阶段尚未切换——v7.19遗留：纳指-2.6%但IXIC被判"震荡"门漏开；与一票否决的大盘同跌≤-2%豁免同一阈值口径）
+  const gateA = shRow && ((shRow.stage && (shRow.stage.id === 1 || shRow.stage.id === 6)) || (shRow.pct !== null && shRow.pct !== undefined && shRow.pct <= -2));
+  const gateU = ixRow && ((ixRow.stage && (ixRow.stage.id === 1 || ixRow.stage.id === 6)) || (ixRow.pct !== null && ixRow.pct !== undefined && ixRow.pct <= -2));
   rows.forEach(function(r){
     if(isHold(r.code) || r.total === null) return;
     if(r.code === "sh000001" || r.code === "sz399006" || r.code === "usIXIC" || r.code === "usINX" || r.code === "usDJI") return;
@@ -1245,8 +1257,13 @@ function render(){
   let kN = 0; LIST.forEach(function(s){ if(KMAP[s[0]]) kN++; });
   let __kLastOk = 0; Object.keys(kLast).forEach(function(c){ if(kLast[c] > __kLastOk) __kLastOk = kLast[c]; });   // v8.12：旧版只看LIST[0]，首只三源全败就误报"K线未加载"
   const kAge = __kLastOk ? Math.max(0, Math.round((Date.now() - __kLastOk) / 60000)) : null;
+  let stq = 0;   // v8.18：交易时段内行情陈旧（>10分钟未更新）的标的数
+  LIST.forEach(function(s){
+    const qx = quotes[s[0]], qa = qAt[s[0]];
+    if(qx && qx.price && qa && (Date.now() - qa > 10*60000) && sessOpen(s[0].indexOf("us") !== 0)) stq++;
+  });
   document.getElementById("status").textContent = "已更新 " + now.toLocaleTimeString("zh-CN") +
-    "｜行情" + ok + "成功/" + fail + "失败｜指标" + kN + "/" + LIST.length + (__kLoading ? "·加载中" : "") +
+    "｜行情" + ok + "成功/" + fail + "失败" + (stq ? "（其中" + stq + "只陈旧>10分钟）" : "") + "｜指标" + kN + "/" + LIST.length + (__kLoading ? "·加载中" : "") +
     "｜K线" + (kAge === null ? "未加载" : kAge + "分钟前") +
     "｜行情源" + SRC.q + "·K线源" + SRC.k + "｜环境门:" + ((gateA || gateU) ? "压制" : "关") + "｜事件源：" + (EV_FEED.src || "加载中…");
 }
