@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v8.18</title>
+<title>信号监控 v8.19</title>
 <style>
   /* v8.2 GitHub Primer配色：纯白画布#fff/次级面板#f6f8fa/边框#d1d9e0/强调蓝#0969da/成功绿#1a7f37/危险红#cf222e/注意橙#9a6700·红涨绿跌不变 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#fff;color:#1f2328;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -57,7 +57,7 @@
   <span style="color:#59636e"> ｜ </span>
   <a href="./quant.html" class="on">信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.18</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.19</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -91,6 +91,7 @@
   <details style="margin-top:4px">
     <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.2（纯档案，点击展开，不影响任何功能）</summary>
     <div style="margin-top:6px">
+  <b>v8.19 K线短缓存+加载进度预估（2026-10-23 午后，用户"很多数据检索不到"截图）</b>：根因诊断——①刷新页面后内存缓存清零，83只K线全量重抓需1-2分钟，用户截图时仅加载11/83；②该时段东财push2his探测失败、全池压腾讯兜底链，单只8-9s超时拖慢全轮；报价层正常（83成功/0失败），缺的是指标列。修复：①<b>sessionStorage K线短TTL缓存（30分钟）</b>——刷新/重开页面时命中即秒开全池，未命中者才走网络，缓存载入复跑kSanity全量校验（末日vs现价25%/时间断裂/±100%防线不降级，DRAM事故类脏数据仍会被拦截作废）；②状态栏指标数加<b>百分比+预计剩余秒数</b>（按本轮已加载速率估算），消除"是不是坏了"的不确定性；force刷新同样先吃缓存（日K盘中只有末根在动，无需为刷历史让83只重抓2分钟，状态栏"K线N分钟前"保留真实时效显示）；③卡片"技术分析数据加载中"文案改为明示约1-2分钟；④环境门信号文案补"当日跌≥2%"触发口径。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.18 代码审查修复（2026-10-23 午后，Kimi 全量审查）：环境门补急跌条件+新浪K线源并发覆盖修复+报价陈旧标记+冗余清理</b>：①<b>环境门加宽</b>——指数六阶段=下跌通道/深跌底部区 <b>或</b> 指数当日跌幅≤-2% 即触发（解决 v7.19 遗留：纳指-2.6% 但 IXIC 均线未完全空头被判"震荡"、门漏开——急跌初期均线滞后，单靠六阶段慢半拍；与一票否决"大盘同跌≤-2%豁免"同一阈值口径，不新增参数）；②<b>修复新浪K线源并发覆盖 bug</b>——4 worker 并行时每次调用都写同一个 window.d 全局变量，两只美股同时走新浪兜底会互相覆盖数据（kSanity 有一定概率拦不住），改为每次调用唯一全局名；③<b>报价陈旧标记</b>——记录每只标的行情刷新时间，交易时段内超过10分钟未更新则在状态栏计数提示（"其中N只陈旧"），防止源故障时旧价静默充当现价；④<b>冗余清理</b>——删除 KSET 数组（全文件仅一处消费，直接用 LIST 映射，省一层间接）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.17 信号区批量去重（2026-10-23 12:40，用户"这些太重复了"截图）</b>：①大涨/大跌异动≥3只合并为一条批量汇总（名单+涨跌幅内联，明细看表格）——修复8条"大跌-5~-11%：异动"刷屏；②同一只票的"深跌底部区+超跌"与"🔵阶段②企稳"两条信号合并为一条（创业板/上证/亿纬/兆易/宁德/300ETF每只都成双的刷屏）；③板块联动合并的匹配词收窄（大涨/大跌已被批量合并接管，不再进板块桶）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.16 废除温度计特殊身份（2026-10-23 11:50，用户裁决"温度计没用可删"）</b>：8只板块龙头（茅台/美的/平安/海油/神华/迈瑞/东财/比亚迪）与普通股票完全同权——可入机会区（≥80/观察级按分数正常入选）、正常输出买卖结论、环境门不再豁免、可显示⭐、表格"温"标记删除；quant.html内thermo相关代码全清（window.THERMOMETER留在list.js但已无消费方，无害）。<b>打分与判定逻辑零改动。</b><br>
@@ -296,6 +297,28 @@ function loadQuotesTX(cs){
     return got;
   });
 }
+// v8.19 K线短TTL缓存：刷新页面后83只全量重抓是"很多数据检索不到"观感的主因——sessionStorage缓存30分钟，命中秒开
+const KCACHE_TTL = 30 * 60e3, KCACHE_KEY = "qk_v1_";
+function saveKCache(code, bars){
+  try{ sessionStorage.setItem(KCACHE_KEY + code, JSON.stringify({t: Date.now(), b: bars})); }
+  catch(e){
+    try{   // 配额满：清空全部K线缓存后重试一次
+      Object.keys(sessionStorage).forEach(function(k){ if(k.indexOf(KCACHE_KEY) === 0) sessionStorage.removeItem(k); });
+      sessionStorage.setItem(KCACHE_KEY + code, JSON.stringify({t: Date.now(), b: bars}));
+    }catch(e2){}
+  }
+}
+function loadKCache(code){
+  try{
+    const raw = sessionStorage.getItem(KCACHE_KEY + code);
+    if(!raw) return false;
+    const j = JSON.parse(raw);
+    if(!j || !Array.isArray(j.b) || Date.now() - j.t > KCACHE_TTL) return false;
+    setK(code, j.b);   // 复跑kSanity全量校验，脏数据照样作废——防线不降级
+    if(KMAP[code]){ kLast[code] = Date.now(); return true; }
+    return false;
+  }catch(e){ return false; }
+}
 // v7.17 K线防线：v7.16的"末根vs报价背离"拦不住"末根对但中间断"的拼接脏数据（DRAM事故：源数据拼接2016→2026，末根≈现价，20日却+1254%算出87分假信号）
 function kSanity(code, bars){
   if(!bars || bars.length < 30) return null;
@@ -325,6 +348,7 @@ function kSanity(code, bars){
 function setK(code, bars){
   bars = kSanity(code, bars);
   if(!bars){ KMAP[code] = null; return; }
+  saveKCache(code, bars);   // v8.19：校验通过的K线同步写短缓存（刷新后秒开）
   const _r = calcAll(
     bars.map(function(b){ return b[1]; }),
     bars.map(function(b){ return b[2]; }),
@@ -335,11 +359,13 @@ function setK(code, bars){
   if(_r) _r._vols = bars.slice(-6).map(function(b){ return b[4]; });   // v7.17：外挂末6根量，"放量阳线"触发条件据此自算
   KMAP[code] = _r;
 }
-let __kLoading = false, __kAgain = false;
+let __kLoading = false, __kAgain = false, __kProg = null;
 function loadKlines(force){
   if(__kLoading){ if(force) __kAgain = true; return Promise.resolve(); }   // v8.4在途锁防请求风暴；v8.11：手动强制刷新不再被静默跳过——在途轮结束后自动补跑一轮
   __kLoading = true;
+  __kProg = {t0: Date.now(), n0: Object.keys(KMAP).length};   // v8.19：本轮起点（用于剩余时间估算）
   return loadKlinesBody(force).then(function(r){
+    __kProg = null;
     __kLoading = false;
     if(__kAgain){ __kAgain = false; return loadKlines(true); }
     return r;
@@ -347,8 +373,11 @@ function loadKlines(force){
 }
 function loadKlinesBody(force){
   const now = Date.now();
+  // v8.19：先吃短缓存——命中者kLast置新并跳过网络，只有未命中/超TTL者才进抓取队列
+  // （日K盘中只有末根在变化，30分钟内缓存足够新鲜；force刷新同样先吃缓存——避免为刷历史K线让83只全量重抓2分钟；状态栏"K线N分钟前"保留真实时效）
+  LIST.forEach(function(s){ const c = s[0]; if(!kLast[c] || now - kLast[c] > K_TTL) loadKCache(c); });
   const need = LIST.map(function(s){ return s[0]; }).filter(function(c){
-    return force || !kLast[c] || (now - kLast[c]) > K_TTL;
+    return !kLast[c] || (now - kLast[c]) > K_TTL;
   });
   if(!need.length) return Promise.resolve();
   // v7.21：开工前东财1次探测——成功=顺带完成首只加载；失败=全轮跳过东财直走腾讯（维护时段不再83只各等12s超时）
@@ -1019,7 +1048,7 @@ function renderCards(rows){
     const card = document.createElement("div");
     card.className = "card";
     if(!K2){
-      card.innerHTML = '<div class="hd"><span><b>' + r.name + '</b>' + (isHold(r.code) ? ' <span style="font-size:11px;color:#9a6700">持仓</span>' : '') + (r.pinned ? ' <span style="font-size:11px;color:#0969da">📌固定</span>' : '') + '</span><span class="nums"><b>' + fmt(r.price) + '</b> <span class="' + cls + '">' + (r.pct>0?"+":"") + fmt(r.pct) + '%</span></span></div><div class="ln"><small>技术分析数据加载中或不可用</small></div>';
+      card.innerHTML = '<div class="hd"><span><b>' + r.name + '</b>' + (isHold(r.code) ? ' <span style="font-size:11px;color:#9a6700">持仓</span>' : '') + (r.pinned ? ' <span style="font-size:11px;color:#0969da">📌固定</span>' : '') + '</span><span class="nums"><b>' + fmt(r.price) + '</b> <span class="' + cls + '">' + (r.pct>0?"+":"") + fmt(r.pct) + '%</span></span></div><div class="ln"><small>K线加载中（全量约1-2分钟·刷新后缓存秒开）或不可用</small></div>';
       box.appendChild(card);
       return;
     }
@@ -1151,8 +1180,8 @@ function render(){
     const exN = rows.filter(function(r){ return r.envGate === "exempt"; }).length;
     if(exN) addSig("warn", "大盘环境", "环境门开启中，" + exN + " 只因超跌反转触发/强势回踩（RS≥80+站上MA60）被豁免——底部信号可见可跟踪，但新开仓仓位仍建议减半");
   }
-  if(gateA) addSig("warn", "大盘环境", "上证指数=深跌/下跌通道：A股非持仓标的总分-20（环境门）——银行/电力类高分是抗跌拥挤的反映，读作风险信号而非买点");
-  if(gateU) addSig("warn", "大盘环境", "纳斯达克=深跌/下跌通道：美股非持仓标的总分-20（环境门）——高分≠买点，等阶段切换");
+  if(gateA) addSig("warn", "大盘环境", "上证指数=深跌/下跌通道/当日跌≥2%：A股非持仓标的总分-20（环境门）——银行/电力类高分是抗跌拥挤的反映，读作风险信号而非买点");
+  if(gateU) addSig("warn", "大盘环境", "纳斯达克=深跌/下跌通道/当日跌≥2%：美股非持仓标的总分-20（环境门）——高分≠买点，等阶段切换");
   // v5.2：RS池内评级（20日涨幅百分位）+ 池内市场宽度温度计
   const rsArr = rows.filter(function(r){ return r.K && r.K.ret20 !== null; });
   rsArr.forEach(function(r){
@@ -1262,8 +1291,14 @@ function render(){
     const qx = quotes[s[0]], qa = qAt[s[0]];
     if(qx && qx.price && qa && (Date.now() - qa > 10*60000) && sessOpen(s[0].indexOf("us") !== 0)) stq++;
   });
+  let kEta = "";
+  if(__kLoading && __kProg){   // v8.19：按本轮已加载速率估算剩余秒数（>5秒且有进展才显示）
+    const el = (Date.now() - __kProg.t0) / 1000, dnP = kN - __kProg.n0;
+    if(el > 5 && dnP > 0) kEta = "·约" + Math.max(5, Math.round((LIST.length - kN) / (dnP / el) / 5) * 5) + "秒";
+  }
   document.getElementById("status").textContent = "已更新 " + now.toLocaleTimeString("zh-CN") +
-    "｜行情" + ok + "成功/" + fail + "失败" + (stq ? "（其中" + stq + "只陈旧>10分钟）" : "") + "｜指标" + kN + "/" + LIST.length + (__kLoading ? "·加载中" : "") +
+    "｜行情" + ok + "成功/" + fail + "失败" + (stq ? "（其中" + stq + "只陈旧>10分钟）" : "") +
+    "｜指标" + kN + "/" + LIST.length + "（" + Math.round(kN / LIST.length * 100) + "%）" + (__kLoading ? "·加载中" + kEta : "") +
     "｜K线" + (kAge === null ? "未加载" : kAge + "分钟前") +
     "｜行情源" + SRC.q + "·K线源" + SRC.k + "｜环境门:" + ((gateA || gateU) ? "压制" : "关") + "｜事件源：" + (EV_FEED.src || "加载中…");
 }
