@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v8.8</title>
+<title>信号监控 v8.10</title>
 <style>
   /* v8.2 GitHub Primer配色：纯白画布#fff/次级面板#f6f8fa/边框#d1d9e0/强调蓝#0969da/成功绿#1a7f37/危险红#cf222e/注意橙#9a6700·红涨绿跌不变 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#fff;color:#1f2328;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -57,7 +57,7 @@
   <span style="color:#59636e"> ｜ </span>
   <a href="./quant.html" class="on">信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.8</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.10</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -91,6 +91,8 @@
   <details style="margin-top:4px">
     <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.2（纯档案，点击展开，不影响任何功能）</summary>
     <div style="margin-top:6px">
+  <b>v8.10 卡片排序统一为可操作性tier（2026-10-23 11:02，用户指令）</b>：删除排序器中"钉住/持仓同tier置顶"特权——唯一排序原则=可操作性（tier0可动手→tier9无数据），tier相同再比总分。6只固定钉住标的仍在机会区常驻显示（可见性不变），但位置完全按同一规则竞争，不再锁定前排。<b>打分与判定逻辑零改动。</b><br>
+  <b>v8.9 结论层与赔率/门槛联动（2026-10-23 10:56，实盘截图质询）</b>：①<b>兴业银行式矛盾</b>——99分🔥+绿色✅"回踩买点"与赔率行0.0:1同框（买入区上沿18.63顶到压力带18.60，上行+0.1%/下行-2.2%）：现赔率<1时✅统一降级为⚠️"空间不够风险大，放弃或等回踩加深"（持仓加仓分支同标准）；②<b>顺丰控股式矛盾</b>——"未达线·仅观察"卡片出现绿色✅买点：现未达线卡片的绿色结论一律降灰"观察级·仅记录不产生动作"。修复均在结论展示层，<b>打分与判定逻辑零改动</b>。<br>
   <b>v8.8 事件源宏观化（2026-10-23 10:30，用户需求"更宏观的信息来源"）</b>：搜索词由"A股/股市/美股"（高度重叠·偏境内）改为<b>宏观四词：美联储/黄金/比特币/财报</b>——快讯主路已覆盖一般市场要闻，搜索路Dedicated宏观：Fed动向·利率决议、贵金属·美元·避险、crypto风险情绪、业绩季冲击，均可跨市场影响A股/美股/BTC/黄金；国际突发事件由快讯+🔴关键词置顶兜底。附带跨源去重（标题前24字）——路数变多后同一条新闻会被快讯和搜索重复抓取。请求量5次/6分钟，仍低频合规。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.7 自查修复·死代码清理（2026-10-23 10:25，交接审查）</b>：①<b>真bug</b>——东财报价失败时整批被外层catch跳过、腾讯兜底从未执行，且熔断计数挂错位置（挂在腾讯catch里）——EM故障时段熔断永不触发、每批白等8s超时：重构报价链为"EM失败→计数熔断→照常走TX"；②<b>真bug</b>——rows用push压缩数组而GROUPS/表格用LIST索引访问rows[ia]，任一股报价失败即全体错行：改rows[i]对位+宽度分母改涨跌计数；③<b>防冗余</b>——降级链移除与v8.5抢答第1路同URL的东财快讯源；④死代码清理——loadQuotesEM无人使用的missing返回值、calcAll的bc字段（无任何读取）、事件模板x.sub（无解析器赋值）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.6 事件标题HTML清洗（2026-10-23 10:15，真机截图）</b>：搜索源给标题加&lt;em&gt;高亮标签，解析时只清洗了正文漏了标题，导致"Met&lt;em&gt;a&lt;/em&gt;"式原始标签直接上屏——标题与正文统一过标签清洗。<br>  <b>v8.5 事件源多源并行抢答（2026-10-23 10:05，依据"重要事件又抓取不到"）</b>：根因——v8.0单一快讯源（np-listapi）对跨域引用校验时紧时松，失效时整栏空白。修复：东财快讯+固定宽口径搜索词(A股/股市/美股)<b>4路JSONP并行抢答</b>，谁先回用谁；搜索词固定宽口径（替代v7.9板块轮换）兼顾"不板块刷屏"与"至少抓得到"；4路全败才降级金十日历→news.json→手动粘贴。每轮4次请求/6分钟，低频合规。<br>  <b>v8.4 K线加载防重叠+超时收紧（2026-10-23 早盘，依据"有一些检索不到信息"截图）</b>：根因——loadKlines无在途保护，手动刷新与自动周期可叠加启动多轮×3worker同时抢源，开盘时段东财半死不活（单只超时12s×2源），请求风暴互相拖死、大量标的显示"—"。修复：①<b>在途轮次锁</b>——K线轮在跑时新触发直接跳过，刷新不再打断/叠加；②超时收紧：东财12s→8s、腾讯12s→9s，失败更快落到下一源；③状态栏指标数旁显示"·加载中"。预期指标全量时间从&ge;10分钟缩到1~2分钟。<br>  <b>v8.3 趋势闸门扩展+赔率行（2026-10-23 早盘，依据实盘截图质询）</b>：①趋势闸门扩展——非持仓标的六阶段=下跌通道/深跌底部区且超跌反转未触发③的，<b>无论技术分高低</b>一律降级⚠️"支撑测试区"（v7.19仅拦<60分，73~82分左侧票漏网成绿色✅接飞刀：多氟多82分/东方钽业73分/厦门钨业70分当日-3%~-5.6%创新低仍示"回踩买点"，与同卡"等企稳信号"矛盾）；②卡片新增<b>赔率行</b>=上行空间(至压力带)/下行风险(至止损)，&lt;1橙色警告"赔率不足"——长江电力92分赔率仅0.4:1（空间+0.9%/风险-2.2%）一眼穿帮，高分≠买点。数值公式零改动，仅结论展示层。<br>
@@ -881,6 +883,7 @@ function oddsLine(r){
   return '<div class="ln" style="color:' + col + '">赔率 ' + odds.toFixed(1) + ':1（上行+' + up.toFixed(1) + '%至压力 / 下行-' + dn.toFixed(1) + '%至止损）' + (odds < 1 ? '：赔率不足1，空间不够风险大' : '') + '</div>';
 }
 // v7.5 交易结论：买/卖/观望 + 区间 + 止损（优先级：否决>环境门>破位>超跌触发>持仓>价格位置）
+// v8.9 结论与赔率/门槛联动（2026-10-23 实盘截图质询）：①赔率<1时"✅回踩买点"降级为⚠️"空间不够风险大"——修复兴业银行99分🔥+绿色✅买点与0.0:1赔率同框矛盾（买入区上沿顶到压力带：上行+0.1%/下行-2.2%）；②"未达线·仅观察"卡片禁止绿色✅结论——修复顺丰控股"仅观察不产生动作"与"✅回踩买点"同框矛盾
 function verdictLine(r){
   const K2 = r.K; if(!K2) return "";
   const buyLo = K2.sup1 ? K2.sup1 - 0.5 * K2.atr : null;
@@ -888,6 +891,10 @@ function verdictLine(r){
   const stop = K2.sup1 ? K2.sup1 - K2.atr : null;
   const sellLo = K2.res1 ? Math.min(K2.res1, K2.res2 || K2.res1) : null;
   const sellHi = K2.res1 ? Math.max(K2.res1, K2.res2 || K2.res1) : null;
+  const upPct = (K2.res1 && r.price) ? (sellLo - r.price) / r.price * 100 : null;
+  const dnPct = (K2.sup1 && K2.atr && r.price) ? (r.price - stop) / r.price * 100 : null;
+  const odds = (upPct !== null && dnPct !== null && upPct > 0 && dnPct > 0) ? upPct / dnPct : null;
+  const oddsBad = odds !== null && odds < 1;   // 赔率不足1=期望值天然为负
   let txt = "", col = "#9a6700";
   if(r.veto){ txt = "🚫 否决生效：禁止买入，只执行卖出/止损纪律"; col = "#cf222e"; }
   else if(r.envGate === true && !isHold(r.code)){ txt = "环境门压制（大盘深跌/下跌通道）：冻结新开仓，只观察不动手"; }
@@ -895,7 +902,10 @@ function verdictLine(r){
   else if(r.rev === 3){ txt = "🔵 超跌反转触发：可小仓试探，止损=" + fmt(K2.ll20 - K2.atr) + "（前低-1×ATR），目标压力 " + (sellLo ? fmt(sellLo) + "~" + fmt(sellHi) : "—"); col = "#0969da"; }
   else if(isHold(r.code)){
     if(sellLo && r.price >= sellLo) txt = "现价进入压力区 " + fmt(sellLo) + "~" + fmt(sellHi) + "：持仓考虑分批止盈";
-    else if(buyLo && r.price >= buyLo && r.price <= buyHi) txt = "✅ 持仓回踩买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + "：可小幅加仓，跌破 " + fmt(stop) + " 止损";
+    else if(buyLo && r.price >= buyLo && r.price <= buyHi){
+      if(oddsBad) txt = "⚠️ 持仓回踩买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + "，但赔率仅" + odds.toFixed(1) + ":1（上行+" + upPct.toFixed(1) + "%/下行-" + dnPct.toFixed(1) + "%）：加仓期望值不佳，持有即可不加仓，跌破 " + fmt(stop) + " 止损";
+      else txt = "✅ 持仓回踩买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + "：可小幅加仓，跌破 " + fmt(stop) + " 止损";
+    }
     else txt = "持仓拿稳：跌破支撑 " + fmt(K2.sup1) + " 减仓，跌破 " + fmt(stop) + " 清仓";
     col = "#1a7f37";
   }
@@ -905,12 +915,21 @@ function verdictLine(r){
     if(r.stage && (r.stage.id === 6 || r.stage.id === 1)){
       txt = "⚠️ 现价在支撑测试区 " + fmt(buyLo) + "~" + fmt(buyHi) + "（六阶段=" + r.stage.name + (r.tech !== null ? "，技术" + r.tech + "分" : "") + "）：下跌趋势中支撑多为纸支撑，非买点——等🔵超跌反转③触发再小仓试探（止损=" + fmt(stop) + "），或等六阶段切换";
       col = "#9a6700";
+    } else if(oddsBad){
+      // v8.9：买入区上沿顶到压力带/赔率不足1——买点质量差，降级警示（与赔率行同一标准，消除同卡矛盾）
+      txt = "⚠️ 现价在买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + " 内，但赔率仅" + odds.toFixed(1) + ":1（上行+" + upPct.toFixed(1) + "%至压力/下行-" + dnPct.toFixed(1) + "%至止损）：空间不够风险大，放弃或等回踩加深/压力上移，止损 " + fmt(stop);
+      col = "#9a6700";
     } else {
       txt = "✅ 现价在建议买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + " 内：回踩买点，止损 " + fmt(stop); col = "#1a7f37";
     }
   }
   else if(sellLo && r.price >= sellLo){ txt = "现价进入压力区 " + fmt(sellLo) + "~" + fmt(sellHi) + "：不追，等回踩 " + (buyLo ? fmt(buyLo) + "~" + fmt(buyHi) : "支撑区"); }
   else { txt = "观望：回踩 " + (buyLo ? fmt(buyLo) + "~" + fmt(buyHi) : "—") + " 考虑买入，冲到 " + (sellLo ? fmt(sellLo) + "~" + fmt(sellHi) : "—") + " 考虑卖出"; }
+  // v8.9：未达线·仅观察卡片的结论一律降级为灰色观察级——禁止绿色✅（卡片已自述"不产生任何买入动作"）
+  if(r.nearMiss && col === "#1a7f37"){
+    txt = "观察级·未达80分门槛（仅记录不产生动作）：" + txt.replace("✅ ", "");
+    col = "#59636e";
+  }
   return '<div class="ln" style="color:' + col + ';font-weight:600">' + txt + '</div>';
 }
 function renderCards(rows){
@@ -927,11 +946,10 @@ function renderCards(rows){
   });
   near.sort(function(a,b){ return b.total - a.total; });
   near.slice(0,5).forEach(function(r){ r.nearMiss = true; picked.push(r); });
+  // v8.10：排序唯一原则=可操作性tier（越可能出现交易点的越靠前），tier相同再比总分——钉住/持仓不再享受同tier置顶（用户2026-10-23指令：固定股票也按同一原则排）
   picked.sort(function(a,b){
     const ta = (a.actT === undefined ? 9 : a.actT), tb = (b.actT === undefined ? 9 : b.actT);
-    if(ta !== tb) return ta - tb;   // v7.13：越有操作价值的越靠前
-    const pa = (a.pinned || isHold(a.code)) ? 1 : 0, pb = (b.pinned || isHold(b.code)) ? 1 : 0;
-    if(pa !== pb) return pb - pa;
+    if(ta !== tb) return ta - tb;
     return (b.total||0) - (a.total||0);
   });
   picked.forEach(function(r){
