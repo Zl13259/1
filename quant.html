@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v8.2</title>
+<title>信号监控 v8.5</title>
 <style>
   /* v8.2 GitHub Primer配色：纯白画布#fff/次级面板#f6f8fa/边框#d1d9e0/强调蓝#0969da/成功绿#1a7f37/危险红#cf222e/注意橙#9a6700·红涨绿跌不变 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#fff;color:#1f2328;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -57,7 +57,7 @@
   <span style="color:#59636e"> ｜ </span>
   <a href="./quant.html" class="on">信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.2</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.5</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -91,6 +91,7 @@
   <details style="margin-top:4px">
     <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.2（纯档案，点击展开，不影响任何功能）</summary>
     <div style="margin-top:6px">
+  <b>v8.5 事件源多源并行抢答（2026-10-23 10:05，依据"重要事件又抓取不到"）</b>：根因——v8.0单一快讯源（np-listapi）对跨域引用校验时紧时松，失效时整栏空白。修复：东财快讯+固定宽口径搜索词(A股/股市/美股)<b>4路JSONP并行抢答</b>，谁先回用谁；搜索词固定宽口径（替代v7.9板块轮换）兼顾"不板块刷屏"与"至少抓得到"；4路全败才降级金十日历→news.json→手动粘贴。每轮4次请求/6分钟，低频合规。<br>  <b>v8.4 K线加载防重叠+超时收紧（2026-10-23 早盘，依据"有一些检索不到信息"截图）</b>：根因——loadKlines无在途保护，手动刷新与自动周期可叠加启动多轮×3worker同时抢源，开盘时段东财半死不活（单只超时12s×2源），请求风暴互相拖死、大量标的显示"—"。修复：①<b>在途轮次锁</b>——K线轮在跑时新触发直接跳过，刷新不再打断/叠加；②超时收紧：东财12s→8s、腾讯12s→9s，失败更快落到下一源；③状态栏指标数旁显示"·加载中"。预期指标全量时间从&ge;10分钟缩到1~2分钟。<br>  <b>v8.3 趋势闸门扩展+赔率行（2026-10-23 早盘，依据实盘截图质询）</b>：①趋势闸门扩展——非持仓标的六阶段=下跌通道/深跌底部区且超跌反转未触发③的，<b>无论技术分高低</b>一律降级⚠️"支撑测试区"（v7.19仅拦<60分，73~82分左侧票漏网成绿色✅接飞刀：多氟多82分/东方钽业73分/厦门钨业70分当日-3%~-5.6%创新低仍示"回踩买点"，与同卡"等企稳信号"矛盾）；②卡片新增<b>赔率行</b>=上行空间(至压力带)/下行风险(至止损)，&lt;1橙色警告"赔率不足"——长江电力92分赔率仅0.4:1（空间+0.9%/风险-2.2%）一眼穿帮，高分≠买点。数值公式零改动，仅结论展示层。<br>
   <b>v8.2 配色对齐GitHub Primer（2026-10-23 上午，用户反馈"底色灰"）</b>：页面底色 #f2f2f7→<b>#ffffff 纯白画布</b>（GitHub页面底色）；全套对齐GitHub开源配色体系——卡片边框#d1d9e0、次级面板#f6f8fa、强调蓝#0969da、成功绿#1a7f37、危险红#cf222e、注意橙#9a6700；红涨绿跌语义不变；版本更新记录收纳为折叠区块（默认收起只留一行摘要）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.1 界面降噪·GitHub极简风（2026-10-23 上午，用户反馈"没用的小图标可以删掉"）</b>：删除装饰性emoji——章节标题（📅📋🎯📥📜）、导航图标、卡片解读行前缀（🗣⚖️📊💸）、池内情绪🌡️、"无信号"✅等纯装饰；<b>保留功能性标记</b>：🚫一票否决/✅回踩买点/⚠️破位警示/🔵超跌通道/⭐🔥◎评级/📌钉住/🔴🟡事件重要级——这些承载判定语义，删了丢信息。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.0 浅色主题+事件源固定·大版本（2026-10-23 上午）</b>：①全站配色深色→Apple浅色系统色（#f6f8fa底/#ffffff卡片/#0969da强调，红涨绿跌不变）——长文阅读更省眼、白天可读性更好；②事件源重构：固定东财快讯（全市场要闻精选）为主源，删除板块关键词轮换（旧机制一轮一词，事件流板块刷屏）；自选⭐相关/🔴重要置顶逻辑不变，金十日历→news.json→手动粘贴兜底链保留；③v7.22自定义标的系统并入大版本（搜索/代码直达添加自选，本机localStorage保存）。<b>打分与判定逻辑零改动。</b><br>
@@ -321,7 +322,13 @@ function setK(code, bars){
   if(_r) _r._vols = bars.slice(-6).map(function(b){ return b[4]; });   // v7.17：外挂末6根量，"放量阳线"触发条件据此自算
   KMAP[code] = _r;
 }
+let __kLoading = false;
 function loadKlines(force){
+  if(__kLoading) return Promise.resolve();   // v8.4在途锁：手动刷新/自动周期不叠加新K线轮（多轮×3worker抢源=请求风暴，互相拖死出大片"—"）
+  __kLoading = true;
+  return loadKlinesBody(force).then(function(r){ __kLoading = false; return r; }, function(e){ __kLoading = false; throw e; });
+}
+function loadKlinesBody(force){
   const now = Date.now();
   const need = KSET.map(function(i){ return LIST[i][0]; }).filter(function(c){
     return force || !kLast[c] || (now - kLast[c]) > K_TTL;
@@ -370,7 +377,7 @@ function loadKlines(force){
 }
 function loadKEM(c, now){
   const u = "https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=" + emSecid(c) + "&klt=101&fqt=1&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56&beg=0&end=20500101&lmt=320";
-  return fetchJSONP(u, 12000).then(function(j){
+  return fetchJSONP(u, 8000).then(function(j){
     const kl = j && j.data && j.data.klines;
     if(!kl || kl.length < 30) throw new Error("no kline");
     SRC.k = "东财";
@@ -383,7 +390,7 @@ function loadKTX(c, now){
   // v7.21：不再内部吞错——失败向外抛出，由调用链继续走新浪第四源（旧版末尾.catch吞错导致新浪源从未被调用）
   const tq = c.indexOf("us") === 0 ? c + ".OQ" : c;
   function one(url, key){
-    return fetchJSON(url, 12000).then(function(j){
+    return fetchJSON(url, 9000).then(function(j){
       const d = (j && j.data && (j.data[key] || j.data[c] || j.data[tq])) || {};
       const arr = d.qfqday || d.day || [];
       const bars = arr.map(function(k){ return [ +k[1], +k[2], +k[3], +k[4], +k[5], k[0] ]; });   // v7.17：末根保留日期供kSanity校验
@@ -859,6 +866,17 @@ function plainLine(r){
   if(r.rev === 3) parts.push("🔵超跌反转已触发（阶段③）");
   return '<div class="ln" style="color:#0969da">' + parts.join("；") + '</div>';
 }
+// v8.3 赔率行：上行空间(至压力带下限)/下行风险(至止损)——赔率<1橙色警告（空间不够风险大，期望值天然为负）
+function oddsLine(r){
+  const K2 = r.K;
+  if(!K2 || !K2.sup1 || !K2.res1 || !K2.atr) return "";
+  const up = (Math.min(K2.res1, K2.res2 || K2.res1) - r.price) / r.price * 100;
+  const dn = (r.price - (K2.sup1 - K2.atr)) / r.price * 100;
+  if(up <= 0 || dn <= 0) return "";
+  const odds = up / dn;
+  const col = odds >= 1.5 ? "#1a7f37" : (odds >= 1 ? "#59636e" : "#9a6700");
+  return '<div class="ln" style="color:' + col + '">赔率 ' + odds.toFixed(1) + ':1（上行+' + up.toFixed(1) + '%至压力 / 下行-' + dn.toFixed(1) + '%至止损）' + (odds < 1 ? '：赔率不足1，空间不够风险大' : '') + '</div>';
+}
 // v7.5 交易结论：买/卖/观望 + 区间 + 止损（优先级：否决>环境门>破位>超跌触发>持仓>价格位置）
 function verdictLine(r){
   const K2 = r.K; if(!K2) return "";
@@ -880,9 +898,9 @@ function verdictLine(r){
   }
   else if(buyLo && r.price < buyLo){ txt = "现价低于买入区：等回升站上 " + fmt(buyLo) + "~" + fmt(buyHi) + " 再考虑，不摸底"; }
   else if(buyLo && r.price <= buyHi){
-    // v7.19 趋势闸门：下跌通道/深跌区且技术分<60的非持仓标的，"回踩买点"降级为"支撑测试区"——价格位置逻辑不变，但下跌趋势中支撑多为纸支撑，且"—弱势—33分"与"✅买点"同卡矛盾易误导（2026-10-23 用户质询触发）
-    if(r.stage && (r.stage.id === 6 || r.stage.id === 1) && r.tech !== null && r.tech < 60){
-      txt = "⚠️ 现价在支撑测试区 " + fmt(buyLo) + "~" + fmt(buyHi) + "（六阶段=" + r.stage.name + "，技术" + r.tech + "分<60）：非买点——下跌趋势中支撑破位概率高，左侧试探仅限≤半仓且跌破" + fmt(stop) + "即走";
+    // v8.3 趋势闸门扩展：六阶段=下跌通道/深跌底部区且超跌反转未触发③的非持仓标的——无论技术分高低一律降级⚠️（v7.19仅拦<60分，73~82分左侧票漏网成绿色✅接飞刀；2026-10-23实盘实例：多氟多82分/东方钽业73分/厦门钨业70分当日-3%~-5.6%创新低仍显示"回踩买点"，与同卡"等企稳信号"矛盾）
+    if(r.stage && (r.stage.id === 6 || r.stage.id === 1)){
+      txt = "⚠️ 现价在支撑测试区 " + fmt(buyLo) + "~" + fmt(buyHi) + "（六阶段=" + r.stage.name + (r.tech !== null ? "，技术" + r.tech + "分" : "") + "）：下跌趋势中支撑多为纸支撑，非买点——等🔵超跌反转③触发再小仓试探（止损=" + fmt(stop) + "），或等六阶段切换";
       col = "#9a6700";
     } else {
       txt = "✅ 现价在建议买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + " 内：回踩买点，止损 " + fmt(stop); col = "#1a7f37";
@@ -953,6 +971,7 @@ function renderCards(rows){
       (MACRO_ON ? '<div class="ln" style="color:#9a6700">⚠️ 宏观事件窗口生效中：新开仓建议仓位减半</div>' : "") +
       (trendText(K2)) +
       (r.total !== null && r.total >= 80 && !isHold(r.code) && !r.veto ? '<div class="ln" style="color:#9a6700">往返成本≈0.15%+滑点：短线预期利润空间须覆盖成本</div>' : '') +
+      oddsLine(r) +
       plainLine(r) +
       verdictLine(r) +
       (r.nearMiss ? '<div class="ln"><small>未达80分门槛，仅为当前最高分观察对象，不产生任何买入动作</small></div>' : "");
@@ -1137,7 +1156,7 @@ function render(){
   let kN = 0; LIST.forEach(function(s){ if(KMAP[s[0]]) kN++; });
   const kAge = kLast[LIST[0][0]] ? Math.max(0, Math.round((Date.now() - kLast[LIST[0][0]]) / 60000)) : null;
   document.getElementById("status").textContent = "已更新 " + now.toLocaleTimeString("zh-CN") +
-    "｜行情" + ok + "成功/" + fail + "失败｜指标" + kN + "/" + LIST.length +
+    "｜行情" + ok + "成功/" + fail + "失败｜指标" + kN + "/" + LIST.length + (__kLoading ? "·加载中" : "") +
     "｜K线" + (kAge === null ? "未加载" : kAge + "分钟前") +
     "｜行情源" + SRC.q + "·K线源" + SRC.k + "｜环境门:" + ((gateA || gateU) ? "压制" : "关") + "｜事件源：" + (EV_FEED.src || "加载中…");
 }
@@ -1275,14 +1294,35 @@ const EV_SOURCES = [
   {name:"本地news.json", to:2000, make:function(){ return "./news.json?_=" + Date.now(); }, parse:parseLOCAL}
 ];
 
-// v8.0 事件源固定为"全市场要闻"：东财快讯（编辑精选·无板块偏向）JSONP为主源——删除v7.9板块关键词轮换源（用户反馈：一轮一词导致事件流时而全是半导体、时而全是美联储）；自选⭐/重要🔴置顶逻辑不变
+// v8.5 事件源多源并行抢答：东财快讯 + 固定宽口径搜索词(A股/股市/美股) 4路JSONP同时发、先到先得（v8.0单一快讯源失效回归"抓取不到"——np-listapi对跨域引用校验时紧时松；搜索源固定宽词替代v7.9板块轮换，兼顾"不板块刷屏"与"至少抓得到"）；4路全败才走降级链：金十日历→news.json→手动粘贴
+function parseSearchNews(j){
+  const l = j && j.result && j.result.cmsArticleWebOld;
+  if(!Array.isArray(l) || !l.length) return null;
+  return l.map(function(x){
+    return { time: String(x.date || "").slice(5, 16),
+             text: (x.title || "") + "：" + String(x.content || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().slice(0, 80),
+             url: x.url, source: x.mediaName || "东财", imp: 1 };
+  }).filter(function(x){ return x.text.length > 4; });
+}
+function evSearchURL(kw){
+  return "https://search-api-web.eastmoney.com/search/jsonp?param=" + encodeURIComponent(JSON.stringify({
+    uid: "", keyword: kw, type: ["cmsArticleWebOld"], client: "web", clientType: "web", clientVersion: "curr",
+    param: { cmsArticleWebOld: { searchScope: "default", sort: "time", pageIndex: 1, pageSize: 10 } } }));
+}
 function loadEventSrc(){
-  const u = "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30";
-  fetchJSONP(u, 6000).then(parseEM).then(function(items){
-    if(!items || !items.length) throw new Error("empty");
-    EV_FEED.items = items; EV_FEED.src = "东财快讯"; EV_FEED.at = new Date();
+  let won = false, pending = 4;
+  const settle = function(){ pending--; if(pending === 0 && !won) runEvChain(); };
+  const win = function(items, srcName){
+    if(won || !items || !items.length) return;
+    won = true;
+    EV_FEED.items = items; EV_FEED.src = srcName; EV_FEED.at = new Date();
     digestEvents(); renderEvents(items);
-  }).catch(function(){ runEvChain(); });   // 降级链：金十日历→news.json；最终兜底：手动粘贴区
+  };
+  fetchJSONP("https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30", 6000)
+    .then(parseEM).then(function(it){ win(it, "东财快讯"); }).catch(function(){}).then(settle);
+  ["A股", "股市", "美股"].forEach(function(kw){
+    fetchJSONP(evSearchURL(kw), 6000).then(parseSearchNews).then(function(it){ win(it, "东财搜索·" + kw); }).catch(function(){}).then(settle);
+  });
 }
 function runEvChain(){
   const groups = [EV_SOURCES];
