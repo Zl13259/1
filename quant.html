@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v8.6</title>
+<title>信号监控 v8.8</title>
 <style>
   /* v8.2 GitHub Primer配色：纯白画布#fff/次级面板#f6f8fa/边框#d1d9e0/强调蓝#0969da/成功绿#1a7f37/危险红#cf222e/注意橙#9a6700·红涨绿跌不变 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#fff;color:#1f2328;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -57,7 +57,7 @@
   <span style="color:#59636e"> ｜ </span>
   <a href="./quant.html" class="on">信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.6</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.8</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -91,6 +91,8 @@
   <details style="margin-top:4px">
     <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.2（纯档案，点击展开，不影响任何功能）</summary>
     <div style="margin-top:6px">
+  <b>v8.8 事件源宏观化（2026-10-23 10:30，用户需求"更宏观的信息来源"）</b>：搜索词由"A股/股市/美股"（高度重叠·偏境内）改为<b>宏观四词：美联储/黄金/比特币/财报</b>——快讯主路已覆盖一般市场要闻，搜索路Dedicated宏观：Fed动向·利率决议、贵金属·美元·避险、crypto风险情绪、业绩季冲击，均可跨市场影响A股/美股/BTC/黄金；国际突发事件由快讯+🔴关键词置顶兜底。附带跨源去重（标题前24字）——路数变多后同一条新闻会被快讯和搜索重复抓取。请求量5次/6分钟，仍低频合规。<b>打分与判定逻辑零改动。</b><br>
+  <b>v8.7 自查修复·死代码清理（2026-10-23 10:25，交接审查）</b>：①<b>真bug</b>——东财报价失败时整批被外层catch跳过、腾讯兜底从未执行，且熔断计数挂错位置（挂在腾讯catch里）——EM故障时段熔断永不触发、每批白等8s超时：重构报价链为"EM失败→计数熔断→照常走TX"；②<b>真bug</b>——rows用push压缩数组而GROUPS/表格用LIST索引访问rows[ia]，任一股报价失败即全体错行：改rows[i]对位+宽度分母改涨跌计数；③<b>防冗余</b>——降级链移除与v8.5抢答第1路同URL的东财快讯源；④死代码清理——loadQuotesEM无人使用的missing返回值、calcAll的bc字段（无任何读取）、事件模板x.sub（无解析器赋值）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.6 事件标题HTML清洗（2026-10-23 10:15，真机截图）</b>：搜索源给标题加&lt;em&gt;高亮标签，解析时只清洗了正文漏了标题，导致"Met&lt;em&gt;a&lt;/em&gt;"式原始标签直接上屏——标题与正文统一过标签清洗。<br>  <b>v8.5 事件源多源并行抢答（2026-10-23 10:05，依据"重要事件又抓取不到"）</b>：根因——v8.0单一快讯源（np-listapi）对跨域引用校验时紧时松，失效时整栏空白。修复：东财快讯+固定宽口径搜索词(A股/股市/美股)<b>4路JSONP并行抢答</b>，谁先回用谁；搜索词固定宽口径（替代v7.9板块轮换）兼顾"不板块刷屏"与"至少抓得到"；4路全败才降级金十日历→news.json→手动粘贴。每轮4次请求/6分钟，低频合规。<br>  <b>v8.4 K线加载防重叠+超时收紧（2026-10-23 早盘，依据"有一些检索不到信息"截图）</b>：根因——loadKlines无在途保护，手动刷新与自动周期可叠加启动多轮×3worker同时抢源，开盘时段东财半死不活（单只超时12s×2源），请求风暴互相拖死、大量标的显示"—"。修复：①<b>在途轮次锁</b>——K线轮在跑时新触发直接跳过，刷新不再打断/叠加；②超时收紧：东财12s→8s、腾讯12s→9s，失败更快落到下一源；③状态栏指标数旁显示"·加载中"。预期指标全量时间从&ge;10分钟缩到1~2分钟。<br>  <b>v8.3 趋势闸门扩展+赔率行（2026-10-23 早盘，依据实盘截图质询）</b>：①趋势闸门扩展——非持仓标的六阶段=下跌通道/深跌底部区且超跌反转未触发③的，<b>无论技术分高低</b>一律降级⚠️"支撑测试区"（v7.19仅拦<60分，73~82分左侧票漏网成绿色✅接飞刀：多氟多82分/东方钽业73分/厦门钨业70分当日-3%~-5.6%创新低仍示"回踩买点"，与同卡"等企稳信号"矛盾）；②卡片新增<b>赔率行</b>=上行空间(至压力带)/下行风险(至止损)，&lt;1橙色警告"赔率不足"——长江电力92分赔率仅0.4:1（空间+0.9%/风险-2.2%）一眼穿帮，高分≠买点。数值公式零改动，仅结论展示层。<br>
   <b>v8.2 配色对齐GitHub Primer（2026-10-23 上午，用户反馈"底色灰"）</b>：页面底色 #f2f2f7→<b>#ffffff 纯白画布</b>（GitHub页面底色）；全套对齐GitHub开源配色体系——卡片边框#d1d9e0、次级面板#f6f8fa、强调蓝#0969da、成功绿#1a7f37、危险红#cf222e、注意橙#9a6700；红涨绿跌语义不变；版本更新记录收纳为折叠区块（默认收起只留一行摘要）。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.1 界面降噪·GitHub极简风（2026-10-23 上午，用户反馈"没用的小图标可以删掉"）</b>：删除装饰性emoji——章节标题（📅📋🎯📥📜）、导航图标、卡片解读行前缀（🗣⚖️📊💸）、池内情绪🌡️、"无信号"✅等纯装饰；<b>保留功能性标记</b>：🚫一票否决/✅回踩买点/⚠️破位警示/🔵超跌通道/⭐🔥◎评级/📌钉住/🔴🟡事件重要级——这些承载判定语义，删了丢信息。<b>打分与判定逻辑零改动。</b><br>
@@ -220,24 +222,27 @@ function loadQuotes(){
   let emQFail = 0;   // v7.20 主源熔断：一批东财失败即熔断后续批次的东财尝试（每次loadQuotes自动重置），防东财故障时段8s超时×N批拖死行情加载
   groups.forEach(function(cs){
     chain = chain.then(function(){
-      return (emQFail >= 1 ? Promise.reject(new Error("em fused")) : loadQuotesEM(cs)).then(function(){
-        // v7.12 双源校验：东财与腾讯偏差>15%（且>0.5元）时采信腾讯并计数——防单源脏数据（如DRAM标度异常）
-        return loadQuotesTX(cs).then(function(txGot){
-          // v7.14：东财优先（美股盘前最新价只在东财侧），腾讯为基准兜底+脏数据防线
-          let nEM = 0, nFix = 0;
-          cs.forEach(function(c){
-            const e = emGot[c], t = txGot[c];
-            if(e) nEM++;
-            if(t && t.price) quotes[c] = t;
-            if(e && e.price){
-              const dev = (t && t.price) ? Math.abs(e.price - t.price) / t.price : 0;
-              if(dev > 0.15 && Math.abs(e.price - t.price) > 0.5){ nFix++; }   // 东财脏数据（标度异常）：维持腾讯
-              else quotes[c] = e;   // 东财优先：美股盘前（北京17:00-21:30夏令）只有东财更新
-            }
+      return (emQFail >= 1 ? Promise.reject(new Error("em fused")) : loadQuotesEM(cs))
+        // v8.7修复：东财失败原走外层catch整批跳过、腾讯兜底从未执行，且熔断计数挂错位置（在腾讯catch里）——EM故障=N批×8s白等+熔断永不触发。现失败即计数熔断、照常走腾讯
+        .catch(function(){ emQFail++; })
+        .then(function(){
+          return loadQuotesTX(cs).then(function(txGot){
+            // v7.12/7.14双源校验：东财优先（美股盘前最新价只在东财侧），偏差>15%（且>0.5元）采信腾讯——防单源脏数据（如DRAM标度异常）
+            let nEM = 0, nFix = 0;
+            cs.forEach(function(c){
+              const e = emGot[c], t = txGot[c];
+              if(e) nEM++;
+              if(t && t.price) quotes[c] = t;
+              if(e && e.price){
+                const dev = (t && t.price) ? Math.abs(e.price - t.price) / t.price : 0;
+                if(dev > 0.15 && Math.abs(e.price - t.price) > 0.5){ nFix++; }   // 东财脏数据（标度异常）：维持腾讯
+                else quotes[c] = e;
+              }
+            });
+            SRC.q = nEM === 0 ? "腾讯" : (nFix ? "东财·校验修正" + nFix : "东财");
           });
-          SRC.q = nEM === 0 ? "腾讯" : (nFix ? "东财·校验修正" + nFix : "东财");
-        }).catch(function(){ emQFail++; /* v7.20：计入熔断；v7.15：腾讯挂了不拖死全链——东财数据已写入quotes，照常渲染 */ });
-      }).then(function(){ return new Promise(function(r){ setTimeout(r, 150); }); });
+        })
+        .then(function(){ return new Promise(function(r){ setTimeout(r, 150); }); });
     }).catch(function(){ /* v7.15：本批双源皆败仅跳过该批，下轮TTL自动重试，全页不再白屏 */ });
   });
   return chain;
@@ -262,10 +267,8 @@ function loadQuotesEM(cs){
         volratio: (isFinite(+d.f10) && d.f10 > 0 && d.f10 < 50) ? +d.f10 : null };
     });
     emGot = got;   // v7.12：暂存东财结果，供双源偏差校验
-    const missing = [];
-    cs.forEach(function(c){ if(got[c]) quotes[c] = got[c]; else missing.push(c); });
-    return missing;
-  }, function(){ emGot = {}; return cs.slice(); });
+    cs.forEach(function(c){ if(got[c]) quotes[c] = got[c]; });
+  }, function(){ emGot = {}; });
 }
 function loadQuotesTX(cs){
   const got = {};
@@ -508,12 +511,12 @@ function calcAll(closes, highs, lows, opens, vols){
   if(K > D) sc += 1; else sc -= 1;
   if(J < 0) sc += 1; else if(J > 100) sc -= 1;
   sc = Math.round(sc);
-  let label, bc;
-  if(sc >= 5){ label = "强多"; bc = "b-s2"; }
-  else if(sc >= 2){ label = "偏多"; bc = "b-s1"; }
-  else if(sc >= -1){ label = "震荡"; bc = "b-0"; }
-  else if(sc >= -4){ label = "偏空"; bc = "b-w1"; }
-  else { label = "强空"; bc = "b-w2"; }
+  let label;
+  if(sc >= 5){ label = "强多"; }
+  else if(sc >= 2){ label = "偏多"; }
+  else if(sc >= -1){ label = "震荡"; }
+  else if(sc >= -4){ label = "偏空"; }
+  else { label = "强空"; }
   let pos52 = null;
   if(n >= 200){
     const h52 = hh(250), l52 = ll(250);
@@ -541,7 +544,7 @@ function calcAll(closes, highs, lows, opens, vols){
            revShadow: revShadow, revShrink: revShrink,
            dif: dif, dea: dea, hist: hist, crossUp: crossUp, crossDn: crossDn, histExpanding: histExpanding,
            sup1: sup[0], sup2: sup[1], res1: res[0], res2: res[1], bollU: bollU, bollL: bollL,
-           hh20: h20, ll20: l20, score: sc, label: label, bc: bc, pos52: pos52, minv: minv,
+           hh20: h20, ll20: l20, score: sc, label: label, pos52: pos52, minv: minv,
            crossUp10: crossUp10, crossDn10: crossDn10,
            pos20: h20 > l20 ? (price - l20) / (h20 - l20) * 100 : null,
            ret20: (n >= 21 && closes[n-21] > 0) ? (closes[n-1] / closes[n-21] - 1) * 100 : null };
@@ -1028,7 +1031,7 @@ function render(){
     // 一票否决：VETO生效期间总分压至59以下，买入类信号全部冻结（卖出纪律不受影响）
     r.grade = r.total === null ? null : gradeOf(r.total);
     if(r.thermo && r.grade) r.grade = ["·温度计·", "b-0"];   // v7.3：板块龙头永不进入买入等级
-    rows.push(r);
+    rows[i] = r;   // v8.7修复：按LIST索引对位——旧版push压缩数组，任一股报价失败时GROUPS/表格用LIST索引访问rows[ia]全体错位
   });
   // v5.4 自动否决统一判定：放量破20日低点，但大盘同跌≤-2%时判定为系统性下跌、否决暂停
   // （个股破位在系统性下跌中无区分度，防错杀；大盘平静期的个股性崩塌仍正常否决）
@@ -1083,7 +1086,7 @@ function render(){
   });
   const breadthEl = document.getElementById("breadth");
   if(breadthEl) breadthEl.innerHTML = "池内情绪：上涨 <b style=\"color:#cf222e\">" + advN + "</b> / 下跌 <b style=\"color:#1a7f37\">" + decN +
-    "</b>｜20日新高 " + nhN + " · 新低 " + nlN + "｜宽度 " + (rows.length ? Math.round(advN / rows.length * 100) : 0) + "%";
+    "</b>｜20日新高 " + nhN + " · 新低 " + nlN + "｜宽度 " + (advN + decN ? Math.round(advN / (advN + decN) * 100) : 0) + "%";   // v8.7：分母随rows[i]对位改涨跌计数（旧分母含无数据行）
   MACRO_ON = EV_FEED.macro;
   rows.forEach(function(r){ r.actT = actTier(r); });
   renderCards(rows);
@@ -1287,8 +1290,7 @@ function parseLOCAL(j){
 }
 
 const EV_SOURCES = [
-  // v6.3：只保留两个权威直连源（聚合源/代理/财联社均已删除）
-  {name:"东财快讯", to:4000, make:function(){ return "https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30"; }, parse:parseEM},
+  // v8.7：移除东财快讯——与v8.5四路抢答第1路同URL同解析，降级链重复请求（防冗余原则）；抢答全败后直接进金十日历
   {name:"金十日历", to:4000, make:function(){ return "https://cdn-rili.jin10.com/data/" + dstr(new Date()) + "/economics.json"; }, parse:parseJIN10},
   // v6.4：加本地news.json钩子（与网页同目录，同域永不拦；未来可用GitHub Actions每日生成）
   {name:"本地news.json", to:2000, make:function(){ return "./news.json?_=" + Date.now(); }, parse:parseLOCAL}
@@ -1309,8 +1311,11 @@ function evSearchURL(kw){
     uid: "", keyword: kw, type: ["cmsArticleWebOld"], client: "web", clientType: "web", clientVersion: "curr",
     param: { cmsArticleWebOld: { searchScope: "default", sort: "time", pageIndex: 1, pageSize: 10 } } }));
 }
+// v8.8 搜索词宏观化（2026-10-23，用户需求"更宏观的信息源"）：旧词"A股/股市/美股"高度重叠且偏境内——快讯主路已覆盖一般市场要闻，
+// 搜索路Dedicated宏观：美联储(Fed动向/利率决议)、黄金(贵金属/美元/避险)、比特币(crypto风险情绪)、财报(业绩季个股与板块冲击)——均可跨市场影响A股/美股/BTC/黄金
+const EV_SEARCH_KWS = ["美联储", "黄金", "比特币", "财报"];
 function loadEventSrc(){
-  let won = false, pending = 4;
+  let won = false, pending = 1 + EV_SEARCH_KWS.length;
   const settle = function(){ pending--; if(pending === 0 && !won) runEvChain(); };
   const win = function(items, srcName){
     if(won || !items || !items.length) return;
@@ -1320,7 +1325,7 @@ function loadEventSrc(){
   };
   fetchJSONP("https://np-listapi.eastmoney.com/comm/web/getFastNewsList?client=web&biz=web_news_col&fastColumn=102&sortEnd=&pageSize=30", 6000)
     .then(parseEM).then(function(it){ win(it, "东财快讯"); }).catch(function(){}).then(settle);
-  ["A股", "股市", "美股"].forEach(function(kw){
+  EV_SEARCH_KWS.forEach(function(kw){
     fetchJSONP(evSearchURL(kw), 6000).then(parseSearchNews).then(function(it){ win(it, "东财搜索·" + kw); }).catch(function(){}).then(settle);
   });
 }
@@ -1371,6 +1376,15 @@ function parsePasted(){
 function renderEvents(items){
   const box = document.getElementById("evsrc");
   if(!box) return;
+  // v8.8：跨源去重——快讯与宏观搜索会抓到同一条新闻（如"美联储降息"），按标题前24字去重，先出现的（重要级/来源序）保留
+  if(items){
+    const seen = {}, ded = [];
+    items.forEach(function(x){
+      const k = String(x.text || "").replace(/\s+/g, "").slice(0, 24);
+      if(k && !seen[k]){ seen[k] = 1; ded.push(x); }
+    });
+    items = ded;
+  }
   if(!items){
     box.innerHTML = '<div class="sig info">⚠️ 事件源抓取失败——根因是浏览器<b>跨域安全策略(CORS)</b>：你能打开金十/东财网站，但github.io上的网页去fetch它们会被对方服务器拒绝（报价能显示是因为script标签不受CORS限制）。三条出路：<br>① 用上方手动粘贴区：金十App「只看重要」复制快讯→粘贴→解析（关键词自动识别⭐🔴）；<br>② 回报Kimi，按你的网络环境换源；<br>③ 进阶：GitHub Actions每日生成同目录news.json，彻底绕开CORS。<br>本页技术面评分不受影响。<br><a style="color:#0969da" href="https://www.jin10.com/" target="_blank">打开金十数据 ↗</a></div>';
     return;
@@ -1390,7 +1404,7 @@ function renderEvents(items){
       const head = x.url ? '<a style="color:#0969da;text-decoration:none" href="' + escapeHtml(x.url) + '" target="_blank">' + escapeHtml(x.text.slice(0, 70)) + '</a>'
                          : escapeHtml(x.text.slice(0, 70));
       return '<div class="sig info" style="margin-bottom:5px;padding:7px 10px">' + tag + mark + ' ' + head +
-             (x.sub ? '<div style="font-size:12px;color:#59636e;margin-top:2px">' + escapeHtml(x.sub) + '</div>' : '') + '</div>';
+             '</div>';   // v8.7：移除x.sub分支（无任何解析器赋值，死代码）
     }).join("");
 }
 
