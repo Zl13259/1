@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v8.10</title>
+<title>信号监控 v8.11</title>
 <style>
   /* v8.2 GitHub Primer配色：纯白画布#fff/次级面板#f6f8fa/边框#d1d9e0/强调蓝#0969da/成功绿#1a7f37/危险红#cf222e/注意橙#9a6700·红涨绿跌不变 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#fff;color:#1f2328;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -57,7 +57,7 @@
   <span style="color:#59636e"> ｜ </span>
   <a href="./quant.html" class="on">信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.10</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.11</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -83,7 +83,7 @@
 <div id="cards"></div>
 <table id="tbl">
   <thead><tr>
-    <th class="l">名称</th><th>现价</th><th>涨幅%</th><th>20日%</th><th>RS</th><th>技术/100</th><th>反转·突破</th><th>总分</th><th>判定</th><th>RSI14</th><th>52周位</th>
+    <th class="l" title="排序：可操作性tier（可动手>止盈>持仓>等回踩>冲压力>观望>破位>环境门>否决>无数据），同tier比涨幅、再比总分">名称</th><th>现价</th><th>涨幅%</th><th>20日%</th><th>RS</th><th>技术/100</th><th>反转·突破</th><th>总分</th><th>判定</th><th>RSI14</th><th>52周位</th>
   </tr></thead>
   <tbody></tbody>
 </table>
@@ -91,6 +91,7 @@
   <details style="margin-top:4px">
     <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.2（纯档案，点击展开，不影响任何功能）</summary>
     <div style="margin-top:6px">
+  <b>v8.11 搜索源换序+K线提速（2026-10-23 11:12，用户反馈"三花智控搜不到/刷新慢/排序看不懂"）</b>：①<b>搜索</b>——东财联想(UTF-8原生)升主源、腾讯smartbox(GBK老接口·中文UTF-8请求偶发空结果被误读为无此票)降辅源，超时6s→8s；②<b>K线加载</b>——在途锁期间的手动强制刷新不再静默跳过、在途轮结束后自动补跑（修"刷新没反应"）；worker 3→4（仍200ms限速，总速率温和）；③表格"名称"列表头加排序规则悬停提示。排序逻辑本身未变：可操作性tier优先，同tier比涨幅→总分；截图中"像按涨幅排"是K线未加载（指标33/83）时全体tier9的次生现象。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.10 卡片排序统一为可操作性tier（2026-10-23 11:02，用户指令）</b>：删除排序器中"钉住/持仓同tier置顶"特权——唯一排序原则=可操作性（tier0可动手→tier9无数据），tier相同再比总分。6只固定钉住标的仍在机会区常驻显示（可见性不变），但位置完全按同一规则竞争，不再锁定前排。<b>打分与判定逻辑零改动。</b><br>
   <b>v8.9 结论层与赔率/门槛联动（2026-10-23 10:56，实盘截图质询）</b>：①<b>兴业银行式矛盾</b>——99分🔥+绿色✅"回踩买点"与赔率行0.0:1同框（买入区上沿18.63顶到压力带18.60，上行+0.1%/下行-2.2%）：现赔率<1时✅统一降级为⚠️"空间不够风险大，放弃或等回踩加深"（持仓加仓分支同标准）；②<b>顺丰控股式矛盾</b>——"未达线·仅观察"卡片出现绿色✅买点：现未达线卡片的绿色结论一律降灰"观察级·仅记录不产生动作"。修复均在结论展示层，<b>打分与判定逻辑零改动</b>。<br>
   <b>v8.8 事件源宏观化（2026-10-23 10:30，用户需求"更宏观的信息来源"）</b>：搜索词由"A股/股市/美股"（高度重叠·偏境内）改为<b>宏观四词：美联储/黄金/比特币/财报</b>——快讯主路已覆盖一般市场要闻，搜索路Dedicated宏观：Fed动向·利率决议、贵金属·美元·避险、crypto风险情绪、业绩季冲击，均可跨市场影响A股/美股/BTC/黄金；国际突发事件由快讯+🔴关键词置顶兜底。附带跨源去重（标题前24字）——路数变多后同一条新闻会被快讯和搜索重复抓取。请求量5次/6分钟，仍低频合规。<b>打分与判定逻辑零改动。</b><br>
@@ -327,11 +328,15 @@ function setK(code, bars){
   if(_r) _r._vols = bars.slice(-6).map(function(b){ return b[4]; });   // v7.17：外挂末6根量，"放量阳线"触发条件据此自算
   KMAP[code] = _r;
 }
-let __kLoading = false;
+let __kLoading = false, __kAgain = false;
 function loadKlines(force){
-  if(__kLoading) return Promise.resolve();   // v8.4在途锁：手动刷新/自动周期不叠加新K线轮（多轮×3worker抢源=请求风暴，互相拖死出大片"—"）
+  if(__kLoading){ if(force) __kAgain = true; return Promise.resolve(); }   // v8.4在途锁防请求风暴；v8.11：手动强制刷新不再被静默跳过——在途轮结束后自动补跑一轮
   __kLoading = true;
-  return loadKlinesBody(force).then(function(r){ __kLoading = false; return r; }, function(e){ __kLoading = false; throw e; });
+  return loadKlinesBody(force).then(function(r){
+    __kLoading = false;
+    if(__kAgain){ __kAgain = false; return loadKlines(true); }
+    return r;
+  }, function(e){ __kLoading = false; throw e; });
 }
 function loadKlinesBody(force){
   const now = Date.now();
@@ -342,7 +347,7 @@ function loadKlinesBody(force){
   // v7.21：开工前东财1次探测——成功=顺带完成首只加载；失败=全轮跳过东财直走腾讯（维护时段不再83只各等12s超时）
   return loadKEM(need[0], now).then(function(){ return true; }, function(){ return false; }).then(function(emUp){
     SRC.k = emUp ? "东财" : "腾讯";
-    const wN = 3;
+    const wN = 4;   // v8.11：3→4——K线源故障时段83只串行排队过长（实测指标33/83），4并发仍200ms间隔限速，总请求速率温和
     function worker(w){
       let p = Promise.resolve();
       for(let i = w; i < need.length; i += wN){
@@ -359,7 +364,7 @@ function loadKlinesBody(force){
       return p;
     }
     const ws = [];
-    for(let w = 0; w < wN; w++) ws.push(worker(w));   // v7.21真·3并发：worker内链式串行、worker间轮转（旧版while同步抢标=第1个worker全量并发，熔断失效根因）
+    for(let w = 0; w < wN; w++) ws.push(worker(w));   // v7.21真并发结构：worker内链式串行、worker间轮转（旧版while同步抢标=第1个worker全量并发，熔断失效根因）
     return Promise.all(ws);
   }).then(function(){
     // 周期末补抓一轮本周期仍缺失的（慢速单发，同构；不回东财——本轮探测已定性）
@@ -690,7 +695,7 @@ function searchSmartbox(kw){
 // --- 搜索源2：东财联想JSONP（cb回调）---
 function searchEM(kw){
   const u = "https://searchapi.eastmoney.com/api/suggest/get?input=" + encodeURIComponent(kw) + "&type=14&count=10&token=D43BF722C8E33BDC906FB84D85E326E8";
-  return fetchJSONP(u, 6000).then(function(j){
+  return fetchJSONP(u, 8000).then(function(j){
     const arr = j && j.QuotationCodeTable && j.QuotationCodeTable.Data;
     const out = [], seen = {};
     (arr || []).forEach(function(d){
@@ -741,14 +746,14 @@ function onAddInput(){
 }
 function doSearch(kw){
   renderAddBox([{loading: true}]);
-  searchSmartbox(kw).then(function(raw){
-    const r = parseSmartbox(raw);
+  // v8.11修复"三花智控搜不到"：东财联想(UTF-8原生)优先——旧版smartbox优先，其对中文关键词按GBK解码老接口，UTF-8请求偶发空结果且被当作"无此票"，东财源沦为兜底；smartbox降为辅源
+  searchEM(kw).then(function(r){
     if(r.length) return r;
-    return searchEM(kw);
+    return searchSmartbox(kw).then(parseSmartbox);
   }).then(function(r){
     renderAddBox(r && r.length ? r : [{empty: true}]);
   }).catch(function(){
-    searchEM(kw).then(function(r){ renderAddBox(r && r.length ? r : [{empty: true}]); })
+    searchSmartbox(kw).then(function(raw){ return parseSmartbox(raw); }).then(function(r){ renderAddBox(r && r.length ? r : [{empty: true}]); })
       .catch(function(){ renderAddBox([{err: true}]); });
   });
 }
