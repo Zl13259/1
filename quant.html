@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v8.23</title>
+<title>信号监控 v8.24</title>
 <style>
   /* v8.2 GitHub Primer配色：纯白画布#fff/次级面板#f6f8fa/边框#d1d9e0/强调蓝#0969da/成功绿#1a7f37/危险红#cf222e/注意橙#9a6700·红涨绿跌不变 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#fff;color:#1f2328;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -57,7 +57,7 @@
   <span style="color:#59636e"> ｜ </span>
   <a href="./quant.html" class="on">信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.23</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.24</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -89,8 +89,9 @@
 </table>
 <div class="note">
   <details style="margin-top:4px">
-    <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.23（纯档案，点击展开，不影响任何功能）</summary>
+    <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.24（纯档案，点击展开，不影响任何功能）</summary>
     <div style="margin-top:6px">
+  <b>v8.24 赔率三档联动+独立行情豁免说明（2026-10-26，用户裁决"大盘环境不作个股买点硬前置"）</b>：①交易结论与赔率行同口径三档化——非持仓回踩买点：赔率≥1.5 绿色✅；1~1.5 橙⚠️"期望值平平，可买但仓位打折执行"；<1 维持"空间不够风险大，放弃"——原仅<1一档降级，1.1:1式鸡肋买点无警示（中国海油2026-10-26实例）；持仓加仓分支同标准。②环境门豁免信号补说明：RS≥80=连续20日强度前20%的资金持续流入真强势，单日逆势轮动不计入豁免——区分"独立行情"与"轮动噪音"。<b>打分、判定、环境门、豁免条件零改动，仅结论展示层。</b><br>
   <b>v8.23 文案与标签微调（2026-10-26，用户裁决"按你说的改"）</b>：①环境门"高分≠买点"提示词由"银行/电力类"扩展为"银行/电力/油气/煤炭/红利低波类"——弱市抗跌抱团不限于银行电力；②表格"环境豁免"标签统一改为"环境豁免·开仓减半"，与信号区"豁免≠绿灯、新开仓仍减半"口径对齐（豁免判定逻辑零改动）；③版本档案摘要同步更新。<b>核查纠正</b>：PDF中NVDA明细"双行/粘连"经v8.22整码复核为PDF文本提取折行伪影——卡片"20日/RS/相对基准"行仅渲染一次（innerHTML整体重设、非追加），代码层无重复输出，为避免冗余未加去重filter；若后续实机浏览器复现双行再开白盒定位。<b>打分、判定、环境门、豁免逻辑零改动。</b><br>
   <b>v8.22 K线质量级联兜底（2026-10-23 深夜，用户裁决"按你说的改"）——"那几个美股一直检索不到"的根因与统一修复</b>：根因（服务端对池内14只美股逐只实测+逐条kSanity模拟）——①<b>DRAM</b>：腾讯ifzq对usDRAM.OQ返回中毒序列，"DRAM"代码2016-03曾被旧标的占用，腾讯把2016年0.7~3美元的幽灵数据直接拼接在2026年46~47美元数据前（断裂@第320根），kSanity正确作废整组，但<b>兜底链流转只看HTTP层成功</b>——腾讯code:0伪成功让链条停在中毒数据上，干净的新浪源（141根）永远轮不到；②<b>SOXS</b>：腾讯对杠杆ETF只返回当日1根（&lt;30根直接作废）；③叠加放大器：旧版loaders先置kLast再跑kSanity，数据被作废后该票K_TTL(5分钟)内不再重试。东财源正常时两票走东财无恙，东财一抽风（近期频繁）即复现——这就是"一直获取不到"的机制。修复：<b>setK改返回布尔</b>——kSanity作废（或断裂截断后不足30根）即抛错，东财→腾讯→新浪三层全部按"质量失败也降级"流转；kLast/SRC.k只在数据验收成功后写入；kFail计数移出setK、统一由"全源皆败"的末端catch承担（计数语义与v8.21不变：≥3轮跳过+每6周期放行，源恢复自动清零）。实测新浪对池内全部14只美股均有干净深度历史（SOXS 4180根、DRAM 141根、其余3000~9500根），级联生效后DRAM/SOXS在东财故障时段由新浪自动补齐。<b>打分、判定、环境门口径零改动。</b><br>
   <b>v8.21 审查后续修复（2026-10-23 深夜，Kimi 复审 v8.20）</b>：①<b>美股量比自算</b>——v8.20 强制 volratio=null 的副作用：一票否决（放量破20日低点）与+5突破加成对美股永久失效（DRAM/SOXS 类持仓裸奔）；现美股改用 K线"昨日量/前5日均量"估算（盘中量不可比，口径弱于A股实时量比但恢复对称性，破位保护回归）；②<b>kFail 覆盖网络失败</b>——原只计脏数据拒绝，三源皆败的票每轮空转；现网络失败同样计数，≥3轮跳过且每6个刷新周期（约6分钟）放行重试一次——源恢复成功即清零，不会永久死锁；③微修——东财报价某批空返回时清空 emGot 批次残留（原留上一批数据，现无害但属隐患）。<b>打分权重、六阶段模型、超跌通道、环境门口径零改动。</b><br>
@@ -152,7 +153,7 @@
 
   重要事件区：东财快讯+金十日历双权威源并行抓取；🔴重要新闻与⭐自选相关词自动置顶，风险类关键词自动生成红色预警；盘中异动（涨跌±5%、振幅>8%、量比>3）由页面自动检测；同板块≥3只齐发同类信号自动合并为板块联动一条。本页为技术面参考，不构成交易建议；成本与纪律分析见晨报/晚报。
 </div>
-<script src="./list.js?v=8.23"></script>
+<script src="./list.js?v=8.24"></script>
 <script>
 // ===== 思路致谢（仅借鉴方法论，本文件全部代码原创，未复制任何项目代码）=====
 // Minervini趋势模板/RS相对强度/市场宽度：思想借鉴自 xang1234/stock-screener（GitHub）
@@ -1002,7 +1003,6 @@ function verdictLine(r){
   const upPct = (K2.res1 && r.price) ? (sellLo - r.price) / r.price * 100 : null;
   const dnPct = (K2.sup1 && K2.atr && r.price) ? (r.price - stop) / r.price * 100 : null;
   const odds = (upPct !== null && dnPct !== null && upPct > 0 && dnPct > 0) ? upPct / dnPct : null;
-  const oddsBad = odds !== null && odds < 1;   // 赔率不足1=期望值天然为负
   let txt = "", col = "#9a6700";
   if(r.veto){ txt = "🚫 否决生效：禁止买入，只执行卖出/止损纪律"; col = "#cf222e"; }
   else if(r.envGate === true && !isHold(r.code)){ txt = "环境门压制（大盘深跌/下跌通道）：冻结新开仓，只观察不动手"; }
@@ -1011,7 +1011,7 @@ function verdictLine(r){
   else if(isHold(r.code)){
     if(sellLo && r.price >= sellLo) txt = "现价进入压力区 " + fmt(sellLo) + "~" + fmt(sellHi) + "：持仓考虑分批止盈";
     else if(buyLo && r.price >= buyLo && r.price <= buyHi){
-      if(oddsBad) txt = "⚠️ 持仓回踩买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + "，但赔率仅" + odds.toFixed(1) + ":1（上行+" + upPct.toFixed(1) + "%/下行-" + dnPct.toFixed(1) + "%）：加仓期望值不佳，持有即可不加仓，跌破 " + fmt(stop) + " 止损";
+      if(odds !== null && odds < 1.5) txt = "⚠️ 持仓回踩买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + "，赔率" + odds.toFixed(1) + ":1（<1.5）：加仓期望值不佳" + (odds < 1 ? "，空间不够风险大" : "，仓位打折") + "，持有即可不加仓，跌破 " + fmt(stop) + " 止损";
       else txt = "✅ 持仓回踩买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + "：可小幅加仓，跌破 " + fmt(stop) + " 止损";
     }
     else txt = "持仓拿稳：跌破支撑 " + fmt(K2.sup1) + " 减仓，跌破 " + fmt(stop) + " 清仓";
@@ -1023,9 +1023,13 @@ function verdictLine(r){
     if(r.stage && (r.stage.id === 6 || r.stage.id === 1)){
       txt = "⚠️ 现价在支撑测试区 " + fmt(buyLo) + "~" + fmt(buyHi) + "（六阶段=" + r.stage.name + (r.tech !== null ? "，技术" + r.tech + "分" : "") + "）：下跌趋势中支撑多为纸支撑，非买点——等🔵超跌反转③触发再小仓试探（止损=" + fmt(stop) + "），或等六阶段切换";
       col = "#9a6700";
-    } else if(oddsBad){
-      // v8.9：买入区上沿顶到压力带/赔率不足1——买点质量差，降级警示（与赔率行同一标准，消除同卡矛盾）
-      txt = "⚠️ 现价在买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + " 内，但赔率仅" + odds.toFixed(1) + ":1（上行+" + upPct.toFixed(1) + "%至压力/下行-" + dnPct.toFixed(1) + "%至止损）：空间不够风险大，放弃或等回踩加深/压力上移，止损 " + fmt(stop);
+    } else if(odds !== null && odds < 1.5){
+      // v8.24 赔率三档联动（用户裁决：大盘环境不作硬前置，赔率是个股自身的数学约束）——<1放弃；1~1.5期望值平平、仓位打折；>=1.5正常✅
+      if(odds < 1){
+        txt = "⚠️ 现价在买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + " 内，但赔率仅" + odds.toFixed(1) + ":1（上行+" + upPct.toFixed(1) + "%至压力/下行-" + dnPct.toFixed(1) + "%至止损）：空间不够风险大，放弃或等回踩加深/压力上移，止损 " + fmt(stop);
+      } else {
+        txt = "⚠️ 现价在买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + " 内，赔率" + odds.toFixed(1) + ":1 处于1~1.5平庸区：期望值一般，可买但仓位打折执行，止损 " + fmt(stop);
+      }
       col = "#9a6700";
     } else {
       txt = "✅ 现价在建议买入区 " + fmt(buyLo) + "~" + fmt(buyHi) + " 内：回踩买点，止损 " + fmt(stop); col = "#1a7f37";
@@ -1229,7 +1233,7 @@ function render(){
   });
   if(gateA || gateU){
     const exN = rows.filter(function(r){ return r.envGate === "exempt"; }).length;
-    if(exN) addSig("warn", "大盘环境", "环境门开启中，" + exN + " 只因超跌反转触发/强势回踩（RS≥80+站上MA60）被豁免——底部信号可见可跟踪，但新开仓仓位仍建议减半");
+    if(exN) addSig("warn", "大盘环境", "环境门开启中，" + exN + " 只因超跌反转触发/强势回踩（RS≥80+站上MA60）被豁免——RS≥80=连续20日强度前20%的真强势，单日逆势轮动不计；弱市里独立行情可见可跟踪，但豁免≠无风险：新开仓仓位仍减半");
   }
   if(gateA || gateU){   // v8.20：上证/纳指两条同构信号合并为一条
     const gNames = []; if(gateA) gNames.push("上证"); if(gateU) gNames.push("纳指");
