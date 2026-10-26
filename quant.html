@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>信号监控 v8.22</title>
+<title>信号监控 v8.23</title>
 <style>
   /* v8.2 GitHub Primer配色：纯白画布#fff/次级面板#f6f8fa/边框#d1d9e0/强调蓝#0969da/成功绿#1a7f37/危险红#cf222e/注意橙#9a6700·红涨绿跌不变 */
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC",sans-serif;margin:0;padding:16px;background:#fff;color:#1f2328;font-size:15px;-webkit-font-smoothing:antialiased}
@@ -57,7 +57,7 @@
   <span style="color:#59636e"> ｜ </span>
   <a href="./quant.html" class="on">信号监控</a>
 </div>
-<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.22</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
+<h1>信号监控 <span style="font-size:13px;color:#59636e;font-weight:400">v8.23</span> <span id="clock" style="font-size:12px;color:#59636e"></span></h1>
 <div class="bar">
   <button onclick="loadAll(true)">刷新</button>
   <button class="sec" id="autoBtn" onclick="toggleAuto()">自动刷新：开（60秒）</button>
@@ -89,8 +89,9 @@
 </table>
 <div class="note">
   <details style="margin-top:4px">
-    <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.21（纯档案，点击展开，不影响任何功能）</summary>
+    <summary style="cursor:pointer;color:#0969da">版本更新记录 v6.4 ~ v8.23（纯档案，点击展开，不影响任何功能）</summary>
     <div style="margin-top:6px">
+  <b>v8.23 文案与标签微调（2026-10-26，用户裁决"按你说的改"）</b>：①环境门"高分≠买点"提示词由"银行/电力类"扩展为"银行/电力/油气/煤炭/红利低波类"——弱市抗跌抱团不限于银行电力；②表格"环境豁免"标签统一改为"环境豁免·开仓减半"，与信号区"豁免≠绿灯、新开仓仍减半"口径对齐（豁免判定逻辑零改动）；③版本档案摘要同步更新。<b>核查纠正</b>：PDF中NVDA明细"双行/粘连"经v8.22整码复核为PDF文本提取折行伪影——卡片"20日/RS/相对基准"行仅渲染一次（innerHTML整体重设、非追加），代码层无重复输出，为避免冗余未加去重filter；若后续实机浏览器复现双行再开白盒定位。<b>打分、判定、环境门、豁免逻辑零改动。</b><br>
   <b>v8.22 K线质量级联兜底（2026-10-23 深夜，用户裁决"按你说的改"）——"那几个美股一直检索不到"的根因与统一修复</b>：根因（服务端对池内14只美股逐只实测+逐条kSanity模拟）——①<b>DRAM</b>：腾讯ifzq对usDRAM.OQ返回中毒序列，"DRAM"代码2016-03曾被旧标的占用，腾讯把2016年0.7~3美元的幽灵数据直接拼接在2026年46~47美元数据前（断裂@第320根），kSanity正确作废整组，但<b>兜底链流转只看HTTP层成功</b>——腾讯code:0伪成功让链条停在中毒数据上，干净的新浪源（141根）永远轮不到；②<b>SOXS</b>：腾讯对杠杆ETF只返回当日1根（&lt;30根直接作废）；③叠加放大器：旧版loaders先置kLast再跑kSanity，数据被作废后该票K_TTL(5分钟)内不再重试。东财源正常时两票走东财无恙，东财一抽风（近期频繁）即复现——这就是"一直获取不到"的机制。修复：<b>setK改返回布尔</b>——kSanity作废（或断裂截断后不足30根）即抛错，东财→腾讯→新浪三层全部按"质量失败也降级"流转；kLast/SRC.k只在数据验收成功后写入；kFail计数移出setK、统一由"全源皆败"的末端catch承担（计数语义与v8.21不变：≥3轮跳过+每6周期放行，源恢复自动清零）。实测新浪对池内全部14只美股均有干净深度历史（SOXS 4180根、DRAM 141根、其余3000~9500根），级联生效后DRAM/SOXS在东财故障时段由新浪自动补齐。<b>打分、判定、环境门口径零改动。</b><br>
   <b>v8.21 审查后续修复（2026-10-23 深夜，Kimi 复审 v8.20）</b>：①<b>美股量比自算</b>——v8.20 强制 volratio=null 的副作用：一票否决（放量破20日低点）与+5突破加成对美股永久失效（DRAM/SOXS 类持仓裸奔）；现美股改用 K线"昨日量/前5日均量"估算（盘中量不可比，口径弱于A股实时量比但恢复对称性，破位保护回归）；②<b>kFail 覆盖网络失败</b>——原只计脏数据拒绝，三源皆败的票每轮空转；现网络失败同样计数，≥3轮跳过且每6个刷新周期（约6分钟）放行重试一次——源恢复成功即清零，不会永久死锁；③微修——东财报价某批空返回时清空 emGot 批次残留（原留上一批数据，现无害但属隐患）。<b>打分权重、六阶段模型、超跌通道、环境门口径零改动。</b><br>
   <b>v8.20 全量代码审查修复（2026-10-23 夜，Kimi 逐行审查+PDF实盘输出对照）</b>：<b>逻辑错误3个</b>——①<b>环境门"RS≥80+站上MA60"豁免从未生效</b>（render顺序：环境门判定在RS计算之前，r.rs恒为undefined；PDF实锤迈瑞RS97仍被-20）——RS计算块移到环境门之前；②<b>美股量比字段污染</b>——腾讯f[49]对美股=52周低点，低价美股（SOXS/INTC/DRAM）拿到几十的假量比，"放量破20日低点"否决退化成"破位即否决"、突破+5分量比条件虚置——美股量比强制null；③<b>RS"前X%"文案方向反了</b>——RS=5显示"排池内前95%"像强势，改"仅强于池内X%的标的"。<b>信号冗余2个</b>（PDF实锤）——利率事件双发删一处；深跌底部区+阶段②双发（v8.17合并后L1256条件仍含rev=2）。<b>口径改进</b>——RS分A股/美股两个市场桶（指数不进池，3倍杠杆ETF与A股银行不再同池排位）；美股"相对上证"改"相对纳指"；异动阈值ATR自适应（1.2×ATR%，下限5%）+SOXS杠杆ETF豁免涨跌异动；深跌判定取52周位与20日位的较低者；超跌反转放量判定删除报价量比回退（残留峰值风险路径）；买入区无支撑时明示原因；指数不入5日胜率自评样本。<b>工程优化</b>——K线连续3轮失败的票暂停重试（成功自动清零）；list.js缓存参数7.3→8.20；信号/卡片/表格渲染统一escapeHtml；sigmeta统计改显式拼接；环境门两条同构信号合并一条。<b>打分权重、六阶段模型、超跌通道口径零改动。</b><br>
@@ -151,7 +152,7 @@
 
   重要事件区：东财快讯+金十日历双权威源并行抓取；🔴重要新闻与⭐自选相关词自动置顶，风险类关键词自动生成红色预警；盘中异动（涨跌±5%、振幅>8%、量比>3）由页面自动检测；同板块≥3只齐发同类信号自动合并为板块联动一条。本页为技术面参考，不构成交易建议；成本与纪律分析见晨报/晚报。
 </div>
-<script src="./list.js?v=8.22"></script>
+<script src="./list.js?v=8.23"></script>
 <script>
 // ===== 思路致谢（仅借鉴方法论，本文件全部代码原创，未复制任何项目代码）=====
 // Minervini趋势模板/RS相对强度/市场宽度：思想借鉴自 xang1234/stock-screener（GitHub）
@@ -1232,7 +1233,7 @@ function render(){
   }
   if(gateA || gateU){   // v8.20：上证/纳指两条同构信号合并为一条
     const gNames = []; if(gateA) gNames.push("上证"); if(gateU) gNames.push("纳指");
-    addSig("warn", "大盘环境", gNames.join("、") + "=深跌/下跌通道/当日跌≥2%：非持仓标的总分-20（环境门）——高分≠买点，银行/电力类高分是抗跌拥挤的反映，读作风险信号而非买点");
+    addSig("warn", "大盘环境", gNames.join("、") + "=深跌/下跌通道/当日跌≥2%：非持仓标的总分-20（环境门）——高分≠买点，银行/电力/油气/煤炭/红利低波类高分是抗跌拥挤的反映，读作风险信号而非买点");
   }
   // v5.2：池内市场宽度温度计
   let advN = 0, decN = 0, nhN = 0, nlN = 0;
@@ -1286,7 +1287,7 @@ function render(){
         '<td>' + (r.tech !== null ? r.tech : "—") + '</td>' +
         '<td>' + (r.rev === 3 ? "+20触发" : r.rev === 2 ? "+12企稳" : r.rev === 1 ? "①超跌" : r.bonus ? "+5突破" : "—") + '</td>' +
         '<td><b>' + (r.total !== null ? r.total : "—") + '</b></td>' +
-        '<td>' + (r.veto ? '🚫 ' : '') + (r.grade ? '<span style="font-size:12px;color:' + (r.total >= 90 ? '#1a7f37' : r.total >= 80 ? '#0969da' : '#59636e') + '">' + r.grade[0] + '</span>' : "—") + (r.envGate === true ? ' <span style="font-size:11px;color:#9a6700">环境-20</span>' : (r.envGate === "exempt" ? ' <span style="font-size:11px;color:#0969da">环境豁免</span>' : '')) + (r.stage ? '<div style="font-size:11px;color:#59636e">' + r.stage.name + '</div>' : '') + '</td>' +
+        '<td>' + (r.veto ? '🚫 ' : '') + (r.grade ? '<span style="font-size:12px;color:' + (r.total >= 90 ? '#1a7f37' : r.total >= 80 ? '#0969da' : '#59636e') + '">' + r.grade[0] + '</span>' : "—") + (r.envGate === true ? ' <span style="font-size:11px;color:#9a6700">环境-20</span>' : (r.envGate === "exempt" ? ' <span style="font-size:11px;color:#0969da">环境豁免·开仓减半</span>' : '')) + (r.stage ? '<div style="font-size:11px;color:#59636e">' + r.stage.name + '</div>' : '') + '</td>' +
         '<td>' + (K2 ? fmt(K2.rsi,0) + (K2.rsi >= 70 ? '<span class="up">▲</span>' : K2.rsi <= 30 ? '<span class="dn">▼</span>' : '') : "—") + '</td>' +
         '<td>' + (K2 && K2.pos52 !== null ? fmt(K2.pos52,0) + "%" : "—") + '</td>';
       tb.appendChild(tr);
